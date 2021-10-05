@@ -4,6 +4,7 @@ from rlkit.samplers.data_collector.base import (
     StepCollector,
 )
 from rlkit.samplers.data_collector.path_collector import (
+    ActiveMdpPathCollector,
     MdpPathCollector,
     ObsDictPathCollector,
     GoalConditionedPathCollector,
