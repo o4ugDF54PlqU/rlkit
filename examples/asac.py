@@ -9,6 +9,8 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
+import os
+os.environ['CUDA_VISIBLE_DEVICES']='3'
 
 
 def experiment(variant):
@@ -122,5 +124,5 @@ if __name__ == "__main__":
         ),
     )
     setup_logger('name-of-experiment', variant=variant)
-    # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
+    ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

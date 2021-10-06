@@ -123,10 +123,10 @@ def active_rollout(
         next_o, r, d, env_info = env.step(copy.deepcopy(a)) # Next observation defined here
         # next_o: <class 'numpy.ndarray'> with shape (17,)
 
-        # if (measure) then use state-estimator, else use default next_o
-        if measure > 0.0:
-            a_tensor = torch.unsqueeze(torch.Tensor(a), 0) # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
-            o_tensor = torch.unsqueeze(torch.Tensor(o), 0)
+        # if (not measure) then use state-estimator, else use default next_o
+        if measure < 0.0:
+            a_tensor = torch.unsqueeze(torch.Tensor(a), 0).cuda() # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
+            o_tensor = torch.unsqueeze(torch.Tensor(o), 0).cuda()
             state_est_next_o = state_estimator(o_tensor, a_tensor) # Tensor: torch.Size([1, 17])
             next_o = torch.squeeze(state_est_next_o).detach().numpy() # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
 
@@ -138,7 +138,7 @@ def active_rollout(
         # Restores measure element
         a = np.append(a, measure)
         actions.append(a)
-        next_observations.append(next_o)
+        next_observations.append(next_o) # next_o must be np.ndarray w/ shape (17,)
         raw_next_obs.append(next_o)
         agent_infos.append(agent_info)
         env_infos.append(env_info)

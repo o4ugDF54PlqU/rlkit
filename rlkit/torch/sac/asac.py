@@ -168,7 +168,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         next_obs = batch['next_observations']
 
         # Calculate costs based on measure/non-measure
-        costs = torch.zeros(rewards.size())
+        costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
                 costs[i] = self.cost
