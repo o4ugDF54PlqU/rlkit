@@ -9,7 +9,7 @@ filename = str(uuid.uuid4())
 
 
 def simulate_policy(args):
-    data = torch.load(args.file)
+    data = torch.load(args.file, map_location='cpu')
     policy = data['evaluation/policy']
     env = data['evaluation/env']
     print("Policy loaded")
