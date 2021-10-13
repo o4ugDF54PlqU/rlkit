@@ -18,7 +18,8 @@ def experiment(variant):
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
-    action_dim_with_measure = action_dim + 1 
+    action_dim_with_measure = action_dim + 1
+    cost = 1e-4
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -65,11 +66,13 @@ def experiment(variant):
         eval_env,
         eval_policy,
         state_estimator,
+        cost,
     )
     expl_path_collector = ActiveMdpPathCollector(
         expl_env,
         policy,
         state_estimator,
+        cost,
     )
     replay_buffer = EnvReplayBuffer(
         variant['replay_buffer_size'],
@@ -83,6 +86,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         state_estimator=state_estimator,
+        cost=cost,
         **variant['trainer_kwargs']
     )
     algorithm = TorchBatchRLAlgorithm(
@@ -105,7 +109,7 @@ if __name__ == "__main__":
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=3000,
+            num_epochs=1000,
             num_eval_steps_per_epoch=5000,
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,

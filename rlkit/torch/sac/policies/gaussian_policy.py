@@ -92,7 +92,7 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
             init_w=init_w,
             **kwargs
         )
-        self.log_std = None
+        self.log_std = None 
         self.std = std
         if std is None:
             last_hidden_size = obs_dim
@@ -109,7 +109,7 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
         h = obs
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
-        mean = self.last_fc(h)
+        mean = self.last_fc(h) # mean defined here
         if self.std is None:
             log_std = self.last_fc_log_std(h)
             log_std = torch.clamp(log_std, LOG_SIG_MIN, LOG_SIG_MAX)
@@ -118,7 +118,7 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
             std = torch.from_numpy(np.array([self.std, ])).float().to(
                 ptu.device)
 
-        return TanhNormal(mean, std)
+        return TanhNormal(mean, std) # Error (mean)
 
     def logprob(self, action, mean, std):
         tanh_normal = TanhNormal(mean, std)

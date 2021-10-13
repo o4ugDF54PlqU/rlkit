@@ -155,7 +155,7 @@ class MultivariateDiagonalNormal(TorchDistributionWrapper):
 
     def __init__(self, loc, scale_diag, reinterpreted_batch_ndims=1):
         dist = Independent(TorchNormal(loc, scale_diag),
-                           reinterpreted_batch_ndims=reinterpreted_batch_ndims)
+                           reinterpreted_batch_ndims=reinterpreted_batch_ndims) # Error
         super().__init__(dist)
 
     def get_diagnostics(self):
@@ -325,7 +325,7 @@ class TanhNormal(Distribution):
         """
         self.normal_mean = normal_mean
         self.normal_std = normal_std
-        self.normal = MultivariateDiagonalNormal(normal_mean, normal_std)
+        self.normal = MultivariateDiagonalNormal(normal_mean, normal_std) # Error (normal_mean)
         self.epsilon = epsilon
 
     def sample_n(self, n, return_pre_tanh_value=False):

@@ -24,18 +24,18 @@ class TorchStochasticPolicy(
     ExplorationPolicy, metaclass=abc.ABCMeta
 ):
     def get_action(self, obs_np, ):
-        actions = self.get_actions(obs_np[None])
+        actions = self.get_actions(obs_np[None]) # Error
         return actions[0, :], {}
 
     def get_actions(self, obs_np, ):
-        dist = self._get_dist_from_np(obs_np)
+        dist = self._get_dist_from_np(obs_np) # Error
         actions = dist.sample()
         return elem_or_tuple_to_numpy(actions)
 
     def _get_dist_from_np(self, *args, **kwargs):
         torch_args = tuple(torch_ify(x) for x in args)
         torch_kwargs = {k: torch_ify(v) for k, v in kwargs.items()}
-        dist = self(*torch_args, **torch_kwargs)
+        dist = self(*torch_args, **torch_kwargs) # Error
         return dist
 
 
@@ -62,5 +62,5 @@ class MakeDeterministic(TorchStochasticPolicy):
         self._action_distribution_generator = action_distribution_generator
 
     def forward(self, *args, **kwargs):
-        dist = self._action_distribution_generator.forward(*args, **kwargs)
+        dist = self._action_distribution_generator.forward(*args, **kwargs) # Error
         return Delta(dist.mle_estimate())
