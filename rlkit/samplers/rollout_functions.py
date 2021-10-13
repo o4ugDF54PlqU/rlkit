@@ -78,6 +78,7 @@ def active_rollout(
         env,
         agent,
         state_estimator,
+        cost,
         max_path_length=np.inf,
         render=False,
         render_kwargs=None,
@@ -98,6 +99,7 @@ def active_rollout(
     observations = []
     actions = []
     rewards = []
+    costs = []
     terminals = []
     agent_infos = []
     env_infos = []
@@ -112,7 +114,7 @@ def active_rollout(
     while path_length < max_path_length: # max_path_length = num_expl_steps_per_train_loop in variant
         raw_obs.append(o)
         o_for_agent = preprocess_obs_for_policy_fn(o)
-        a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs)
+        a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs) # Error
 
         measure = a[-1] # Measure value
         a = a[:-1] # Gets rid of measure element
@@ -125,10 +127,13 @@ def active_rollout(
 
         # if (not measure) then use state-estimator, else use default next_o
         if measure < 0.0:
+            costs.append(0.)
             a_tensor = torch.unsqueeze(torch.Tensor(a), 0).cuda() # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
             o_tensor = torch.unsqueeze(torch.Tensor(o), 0).cuda()
             state_est_next_o = state_estimator(o_tensor, a_tensor) # Tensor: torch.Size([1, 17])
             next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
+        else:
+            costs.append(cost)
 
         if render:
             env.render(**render_kwargs)
@@ -157,10 +162,12 @@ def active_rollout(
     rewards = np.array(rewards)
     if len(rewards.shape) == 1:
         rewards = rewards.reshape(-1, 1)
+
     return dict(
         observations=observations,
         actions=actions,
         rewards=rewards,
+        costs=costs,
         next_observations=next_observations,
         terminals=np.array(terminals).reshape(-1, 1),
         agent_infos=agent_infos,
