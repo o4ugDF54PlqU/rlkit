@@ -29,10 +29,11 @@ class ASACTrainer(TorchTrainer, LossFunction):
             target_qf1,
             target_qf2,
             state_estimator,
-            cost,  # Measurement Cost
 
             discount=0.99,
             reward_scale=1.0,
+
+            cost=1e-4,  # Measurement Cost
             state_estimator_lr=1e-3,
             policy_lr=1e-3,
             qf_lr=1e-3,
@@ -165,18 +166,12 @@ class ASACTrainer(TorchTrainer, LossFunction):
         actions = batch['actions'] # torch.Size([256, 7])
         actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
-        new_costs = batch['costs']
 
         # Calculate costs based on measure/non-measure
         costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
                 costs[i] = self.cost
-
-        print("NEW COSTS: ", new_costs)
-        print("OLD COSTS: ", costs)
-
-        # Sum of costs & include in data output
 
         """
         Policy and Alpha Loss
@@ -227,8 +222,6 @@ class ASACTrainer(TorchTrainer, LossFunction):
         """
         eval_statistics = OrderedDict()
         if not skip_statistics:
-            # Add any values wanted in .csv file here
-            eval_statistics['Costs for Epoch'] = np.sum(costs)
             eval_statistics['State Estimator Loss'] = np.mean(ptu.get_numpy(state_estimator_loss))
             eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))

@@ -32,6 +32,7 @@ def get_generic_path_information(paths, stat_prefix=''):
     ))
     statistics['Num Paths'] = len(paths)
     statistics[stat_prefix + 'Average Returns'] = get_average_returns(paths)
+    statistics[stat_prefix + 'Total Cost'] = get_total_costs(paths) # Added costs
 
     for info_key in ['env_infos', 'agent_infos']:
         if info_key in paths[0]:
@@ -60,6 +61,10 @@ def get_generic_path_information(paths, stat_prefix=''):
                 ))
 
     return statistics
+
+
+def get_total_costs(paths):
+    return np.sum([path["costs"] for path in paths])
 
 
 def get_average_returns(paths):
