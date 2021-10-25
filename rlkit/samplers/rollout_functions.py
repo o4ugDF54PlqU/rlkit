@@ -240,6 +240,14 @@ def rollout(
     actions = np.array(actions)
     if len(actions.shape) == 1:
         actions = np.expand_dims(actions, 1)
+
+    # print("type(observations): ", type(observations))
+    # Print all observations, next_observations to file
+    # with open("observations.pt", "ab") as filelol:
+    #     torch.save(torch.Tensor(observations), filelol)
+    # with open("next_observations.pt", "ab") as filelol:
+    #     torch.save(torch.Tensor(next_observations), filelol)
+
     observations = np.array(observations)
     next_observations = np.array(next_observations)
     if return_dict_obs:
@@ -248,6 +256,11 @@ def rollout(
     rewards = np.array(rewards)
     if len(rewards.shape) == 1:
         rewards = rewards.reshape(-1, 1)
+
+    np.savetxt("observations.txt", observations)
+    np.savetxt("actions.txt", actions)
+    np.savetxt("next_observations.txt", next_observations)
+
     return dict(
         observations=observations,
         actions=actions,

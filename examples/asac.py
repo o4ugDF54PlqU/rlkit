@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='3'
+os.environ['CUDA_VISIBLE_DEVICES']='7'
 
 
 def experiment(variant):
@@ -19,7 +19,7 @@ def experiment(variant):
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
-    cost = 1e-4
+    cost = 1e-3
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17

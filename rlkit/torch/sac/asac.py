@@ -103,6 +103,18 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
 
+        # Read in buffer for training ASAC with "expert" data
+        observations = torch.Tensor(np.loadtxt("observations.txt")).cuda()
+        actions = torch.Tensor(np.loadtxt("actions.txt")).cuda()
+        next_observations = torch.Tensor(np.loadtxt("next_observations.txt")).cuda()
+        self.state_estimator = self.state_estimator.cuda()
+        # If we decide to add a loop instead of a single gradient descent, make here
+        state_estimator_pred = self.state_estimator(observations, actions)
+        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_observations)
+        self.state_estimator_optimizer.zero_grad()
+        state_estimator_loss.backward()
+        self.state_estimator_optimizer.step()
+
     def train_from_torch(self, batch):
         # This is the entry point for training for AsSAC
         gt.blank_stamp()
@@ -167,11 +179,20 @@ class ASACTrainer(TorchTrainer, LossFunction):
         actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
 
+        next_obs_only_measure = torch.Tensor([]).cuda()
+        obs_only_measure = torch.Tensor([]).cuda()
+        actions_without_measure_only_measure = torch.Tensor([]).cuda()
+
         # Calculate costs based on measure/non-measure
         costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
                 costs[i] = self.cost
+            else:
+                # print("We are appending!")
+                next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
+                obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
+                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure, actions_without_measure[i].unsqueeze(0)))
 
         """
         Policy and Alpha Loss
@@ -197,8 +218,11 @@ class ASACTrainer(TorchTrainer, LossFunction):
         """
         # obs.shape = torch.Size([256, 17]), type = torch.Tensor
         # actions_without_measure.shape = torch.Size([256, 6]), type = torch.Tensor
-        state_estimator_pred = self.state_estimator(obs, actions_without_measure)
-        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
+        # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
+        # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
+
+        state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
+        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
 
         """
         QF Loss
