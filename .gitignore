@@ -8,3 +8,7 @@ MANIFEST
 *.egg-info
 \.idea/
 /data
+actions.txt
+next_observations.txt
+observations.txt
+.vscode/launch.json

@@ -12,7 +12,6 @@ from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
 os.environ['CUDA_VISIBLE_DEVICES']='7'
 
-
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -20,6 +19,7 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
     cost = 1e-3
+    replay = False
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -87,6 +87,7 @@ def experiment(variant):
         target_qf2=target_qf2,
         state_estimator=state_estimator,
         cost=cost,
+        replay=replay,
         **variant['trainer_kwargs']
     )
     algorithm = TorchBatchRLAlgorithm(
@@ -109,7 +110,7 @@ if __name__ == "__main__":
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=1000,
+            num_epochs=10000,
             num_eval_steps_per_epoch=5000,
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,
@@ -127,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('name-of-experiment', variant=variant)
+    setup_logger('fixed but still crashy ASAC 1e-3', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

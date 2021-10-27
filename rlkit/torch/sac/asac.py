@@ -12,6 +12,8 @@ from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core.logging import add_prefix
 import gtimer as gt
+import os
+import random
 
 SACLosses = namedtuple(
     'SACLosses',
@@ -38,6 +40,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
             policy_lr=1e-3,
             qf_lr=1e-3,
             optimizer_class=optim.Adam,
+            replay=False,
 
             soft_target_tau=1e-2,
             target_update_period=1,
@@ -58,6 +61,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
         self.cost = cost
+        self.replay = replay
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -103,17 +107,18 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
 
-        # Read in buffer for training ASAC with "expert" data
-        observations = torch.Tensor(np.loadtxt("observations.txt")).cuda()
-        actions = torch.Tensor(np.loadtxt("actions.txt")).cuda()
-        next_observations = torch.Tensor(np.loadtxt("next_observations.txt")).cuda()
-        self.state_estimator = self.state_estimator.cuda()
-        # If we decide to add a loop instead of a single gradient descent, make here
-        state_estimator_pred = self.state_estimator(observations, actions)
-        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_observations)
-        self.state_estimator_optimizer.zero_grad()
-        state_estimator_loss.backward()
-        self.state_estimator_optimizer.step()
+        if replay and os.path.exists("observations.txt"):
+            # Read in buffer for training ASAC with "expert" data
+            observations = torch.Tensor(np.loadtxt("observations.txt")).cuda()
+            actions = torch.Tensor(np.loadtxt("actions.txt")).cuda()
+            next_observations = torch.Tensor(np.loadtxt("next_observations.txt")).cuda()
+            self.state_estimator = self.state_estimator.cuda()
+            # If we decide to add a loop instead of a single gradient descent, make here
+            state_estimator_pred = self.state_estimator(observations, actions)
+            state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_observations)
+            self.state_estimator_optimizer.zero_grad()
+            state_estimator_loss.backward()
+            self.state_estimator_optimizer.step()
 
     def train_from_torch(self, batch):
         # This is the entry point for training for AsSAC
@@ -182,17 +187,19 @@ class ASACTrainer(TorchTrainer, LossFunction):
         next_obs_only_measure = torch.Tensor([]).cuda()
         obs_only_measure = torch.Tensor([]).cuda()
         actions_without_measure_only_measure = torch.Tensor([]).cuda()
+        measured = False
 
         # Calculate costs based on measure/non-measure
         costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
+                measured = True
                 costs[i] = self.cost
-            else:
-                # print("We are appending!")
+                
                 next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
                 obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
-                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure, actions_without_measure[i].unsqueeze(0)))
+                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                                actions_without_measure[i].unsqueeze(0)))
 
         """
         Policy and Alpha Loss
@@ -221,6 +228,16 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
         # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
 
+        # print("obs_only_measure size", obs_only_measure.size())
+        # print("action_too_long size", actions_without_measure_only_measure.size())
+        # print("obs_only_measure", obs_only_measure)
+        # print("action_too_long", actions_without_measure_only_measure)
+        if not measured:
+            rand = random.randrange(len(rewards))
+            next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[rand].unsqueeze(0)))
+            obs_only_measure = torch.cat((obs_only_measure, obs[rand].unsqueeze(0)))
+            actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                            actions_without_measure[rand].unsqueeze(0)))
         state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
         state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
 

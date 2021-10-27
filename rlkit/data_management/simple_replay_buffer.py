@@ -24,7 +24,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         # but it makes the code *much* easier since you no longer have to
         # worry about termination conditions.
         self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
-        self._actions = np.zeros((max_replay_buffer_size, action_dim)) # IMPORTANT ACTIVE SAC CHANGE: ADDED +1 to action_dim
+        self._actions = np.zeros((max_replay_buffer_size, action_dim + 1)) # IMPORTANT ACTIVE SAC CHANGE: ADDED +1 to action_dim
         # self._actions = np.zeros((max_replay_buffer_size, action_dim)) # uncomment me to restore SAC
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data

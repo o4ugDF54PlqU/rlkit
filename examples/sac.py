@@ -9,7 +9,8 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
-
+import os
+os.environ['CUDA_VISIBLE_DEVICES']='6'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -106,6 +107,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('name-of-experiment', variant=variant)
+    setup_logger('SAC Baseline', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

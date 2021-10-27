@@ -257,9 +257,17 @@ def rollout(
     if len(rewards.shape) == 1:
         rewards = rewards.reshape(-1, 1)
 
-    np.savetxt("observations.txt", observations)
-    np.savetxt("actions.txt", actions)
-    np.savetxt("next_observations.txt", next_observations)
+    # np.savetxt("observations.txt", observations)
+    # np.savetxt("actions.txt", actions)
+    # np.savetxt("next_observations.txt", next_observations)
+    with open("observations.txt", "ab") as filelol:
+        np.savez(filelol, observations)
+    with open("actions.txt", "ab") as filelol:
+        np.savez(filelol, actions)
+    with open("next_observations.txt", "ab") as filelol:
+        np.savez(filelol, next_observations)
+    # with open("combined.npz", "ab") as filelol:
+    #     np.savez(filelol, observations, actions, next_observations)
 
     return dict(
         observations=observations,
