@@ -74,7 +74,7 @@ Same as rollout(), but samples extra action dimension
 Extra action is not used in env step, but is returned to 
 allow for cost calculation
 """
-def active_rollout(
+def rollout(
         env,
         agent,
         state_estimator,
@@ -177,109 +177,6 @@ def active_rollout(
     )
 
 
-def rollout(
-        env,
-        agent,
-        max_path_length=np.inf,
-        render=False,
-        render_kwargs=None,
-        preprocess_obs_for_policy_fn=None,
-        get_action_kwargs=None,
-        return_dict_obs=False,
-        full_o_postprocess_func=None,
-        reset_callback=None,
-):
-    if render_kwargs is None:
-        render_kwargs = {}
-    if get_action_kwargs is None:
-        get_action_kwargs = {}
-    if preprocess_obs_for_policy_fn is None:
-        preprocess_obs_for_policy_fn = lambda x: x
-    raw_obs = []
-    raw_next_obs = []
-    observations = []
-    actions = []
-    rewards = []
-    terminals = []
-    agent_infos = []
-    env_infos = []
-    next_observations = []
-    path_length = 0
-    agent.reset()
-    o = env.reset()
-    if reset_callback:
-        reset_callback(env, agent, o)
-    if render:
-        env.render(**render_kwargs)
-    while path_length < max_path_length:
-        raw_obs.append(o)
-        o_for_agent = preprocess_obs_for_policy_fn(o)
-        a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs)
-
-        a = a[0:6] # Gets rid of measure element
-
-        if full_o_postprocess_func:
-            full_o_postprocess_func(env, agent, o)
-
-        next_o, r, d, env_info = env.step(copy.deepcopy(a)) # Next observation defined here
-
-        if render:
-            env.render(**render_kwargs)
-        observations.append(o)
-        rewards.append(r)
-        terminals.append(d)
-        actions.append(a)
-        next_observations.append(next_o)
-        raw_next_obs.append(next_o)
-        agent_infos.append(agent_info)
-        env_infos.append(env_info)
-        path_length += 1
-        if d:
-            break
-        o = next_o
-    actions = np.array(actions)
-    if len(actions.shape) == 1:
-        actions = np.expand_dims(actions, 1)
-
-    # print("type(observations): ", type(observations))
-    # Print all observations, next_observations to file
-    # with open("observations.pt", "ab") as filelol:
-    #     torch.save(torch.Tensor(observations), filelol)
-    # with open("next_observations.pt", "ab") as filelol:
-    #     torch.save(torch.Tensor(next_observations), filelol)
-
-    observations = np.array(observations)
-    next_observations = np.array(next_observations)
-    if return_dict_obs:
-        observations = raw_obs
-        next_observations = raw_next_obs
-    rewards = np.array(rewards)
-    if len(rewards.shape) == 1:
-        rewards = rewards.reshape(-1, 1)
-
-    # np.savetxt("observations.txt", observations)
-    # np.savetxt("actions.txt", actions)
-    # np.savetxt("next_observations.txt", next_observations)
-    with open("observations.txt", "ab") as filelol:
-        np.savez(filelol, observations)
-    with open("actions.txt", "ab") as filelol:
-        np.savez(filelol, actions)
-    with open("next_observations.txt", "ab") as filelol:
-        np.savez(filelol, next_observations)
-    # with open("combined.npz", "ab") as filelol:
-    #     np.savez(filelol, observations, actions, next_observations)
-
-    return dict(
-        observations=observations,
-        actions=actions,
-        rewards=rewards,
-        next_observations=next_observations,
-        terminals=np.array(terminals).reshape(-1, 1),
-        agent_infos=agent_infos,
-        env_infos=env_infos,
-        full_observations=raw_obs,
-        full_next_observations=raw_obs,
-    )
 
 
 def deprecated_rollout(
