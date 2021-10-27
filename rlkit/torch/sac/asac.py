@@ -232,7 +232,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # print("obs_only_measure", obs_only_measure)
         # print("action_too_long", actions_without_measure_only_measure)
         if not measured:
-            rand = torch.randint(0,range(len(rewards)))
+            rand = torch.randint(0,len(rewards))
             next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[rand].unsqueeze(0)))
             obs_only_measure = torch.cat((obs_only_measure, obs[rand].unsqueeze(0)))
             actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
