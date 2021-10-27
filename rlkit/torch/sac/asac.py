@@ -186,16 +186,19 @@ class ASACTrainer(TorchTrainer, LossFunction):
         next_obs_only_measure = torch.Tensor([]).cuda()
         obs_only_measure = torch.Tensor([]).cuda()
         actions_without_measure_only_measure = torch.Tensor([]).cuda()
+        measured = False
 
         # Calculate costs based on measure/non-measure
         costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
+                measured = True
                 costs[i] = self.cost
-                # print("We are appending!")
+                
                 next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
                 obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
-                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure, actions_without_measure[i].unsqueeze(0)))
+                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                                actions_without_measure[i].unsqueeze(0)))
 
         """
         Policy and Alpha Loss
@@ -228,6 +231,12 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # print("action_too_long size", actions_without_measure_only_measure.size())
         # print("obs_only_measure", obs_only_measure)
         # print("action_too_long", actions_without_measure_only_measure)
+        if not measured:
+            rand = torch.randint(0,range(len(rewards)))
+            next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[rand].unsqueeze(0)))
+            obs_only_measure = torch.cat((obs_only_measure, obs[rand].unsqueeze(0)))
+            actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                            actions_without_measure[rand].unsqueeze(0)))
         state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
         state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
 

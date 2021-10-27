@@ -128,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('Please dont crash 1e-3', variant=variant)
+    setup_logger('fixed but still crashy ASAC 1e-3', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
