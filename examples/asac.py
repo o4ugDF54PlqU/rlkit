@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='6'
+os.environ['CUDA_VISIBLE_DEVICES']='7'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -19,7 +19,7 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
     cost = 1e-3
-    replay = True
+    replay = False
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -128,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('test', variant=variant)
+    setup_logger('Please dont crash 1e-3', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

@@ -192,7 +192,6 @@ class ASACTrainer(TorchTrainer, LossFunction):
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
                 costs[i] = self.cost
-            else:
                 # print("We are appending!")
                 next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
                 obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
@@ -225,6 +224,10 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
         # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
 
+        # print("obs_only_measure size", obs_only_measure.size())
+        # print("action_too_long size", actions_without_measure_only_measure.size())
+        # print("obs_only_measure", obs_only_measure)
+        # print("action_too_long", actions_without_measure_only_measure)
         state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
         state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
 
