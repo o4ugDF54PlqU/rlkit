@@ -12,13 +12,16 @@ from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core.logging import add_prefix
 import gtimer as gt
+import os
+import random
 
 SACLosses = namedtuple(
     'SACLosses',
-    'policy_loss qf1_loss qf2_loss alpha_loss',
+    'policy_loss qf1_loss qf2_loss alpha_loss state_estimator_loss',
 )
 
-class SACTrainer(TorchTrainer, LossFunction):
+# Active Soft Actor Critic
+class ASACTrainer(TorchTrainer, LossFunction):
     def __init__(
             self,
             env,
@@ -27,13 +30,17 @@ class SACTrainer(TorchTrainer, LossFunction):
             qf2,
             target_qf1,
             target_qf2,
+            state_estimator,
 
             discount=0.99,
             reward_scale=1.0,
 
+            cost=1e-4,  # Measurement Cost
+            state_estimator_lr=1e-3,
             policy_lr=1e-3,
             qf_lr=1e-3,
             optimizer_class=optim.Adam,
+            replay=False,
 
             soft_target_tau=1e-2,
             target_update_period=1,
@@ -50,8 +57,11 @@ class SACTrainer(TorchTrainer, LossFunction):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+        self.state_estimator = state_estimator
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
+        self.cost = cost
+        self.replay = replay
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -70,6 +80,7 @@ class SACTrainer(TorchTrainer, LossFunction):
         self.plotter = plotter
         self.render_eval_paths = render_eval_paths
 
+        self.state_estimator_criterion = nn.MSELoss()
         self.qf_criterion = nn.MSELoss()
         self.vf_criterion = nn.MSELoss()
 
@@ -85,6 +96,10 @@ class SACTrainer(TorchTrainer, LossFunction):
             self.qf2.parameters(),
             lr=qf_lr,
         )
+        self.state_estimator_optimizer = optimizer_class(
+            self.state_estimator.parameters(),
+            lr=state_estimator_lr,
+        )
 
         self.discount = discount
         self.reward_scale = reward_scale
@@ -92,7 +107,21 @@ class SACTrainer(TorchTrainer, LossFunction):
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
 
+        if replay and os.path.exists("observations.txt"):
+            # Read in buffer for training ASAC with "expert" data
+            observations = torch.Tensor(np.loadtxt("observations.txt")).cuda()
+            actions = torch.Tensor(np.loadtxt("actions.txt")).cuda()
+            next_observations = torch.Tensor(np.loadtxt("next_observations.txt")).cuda()
+            self.state_estimator = self.state_estimator.cuda()
+            # If we decide to add a loop instead of a single gradient descent, make here
+            state_estimator_pred = self.state_estimator(observations, actions)
+            state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_observations)
+            self.state_estimator_optimizer.zero_grad()
+            state_estimator_loss.backward()
+            self.state_estimator_optimizer.step()
+
     def train_from_torch(self, batch):
+        # This is the entry point for training for AsSAC
         gt.blank_stamp()
         losses, stats = self.compute_loss(
             batch,
@@ -117,6 +146,10 @@ class SACTrainer(TorchTrainer, LossFunction):
         self.qf2_optimizer.zero_grad()
         losses.qf2_loss.backward()
         self.qf2_optimizer.step()
+
+        self.state_estimator_optimizer.zero_grad()
+        losses.state_estimator_loss.backward()
+        self.state_estimator_optimizer.step()
 
         self._n_train_steps_total += 1
 
@@ -144,17 +177,35 @@ class SACTrainer(TorchTrainer, LossFunction):
         batch,
         skip_statistics=False,
     ) -> Tuple[SACLosses, LossStatistics]:
-        rewards = batch['rewards']
+        rewards = batch['rewards'] # torch.Size([256, 1])
         terminals = batch['terminals']
-        obs = batch['observations']
-        actions = batch['actions']
+        obs = batch['observations'] # torch.Size([256, 17])
+        actions = batch['actions'] # torch.Size([256, 7])
+        actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
+
+        next_obs_only_measure = torch.Tensor([]).cuda()
+        obs_only_measure = torch.Tensor([]).cuda()
+        actions_without_measure_only_measure = torch.Tensor([]).cuda()
+        measured = False
+
+        # Calculate costs based on measure/non-measure
+        costs = torch.zeros(rewards.size()).cuda()
+        for i in range(len(rewards)):
+            if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
+                measured = True
+                costs[i] = self.cost
+                
+                next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
+                obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
+                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                                actions_without_measure[i].unsqueeze(0)))
 
         """
         Policy and Alpha Loss
         """
-        dist = self.policy(obs)
-        new_obs_actions, log_pi = dist.rsample_and_logprob()
+        dist = self.policy(obs) # Gets distribution for stochastic action
+        new_obs_actions, log_pi = dist.rsample_and_logprob() # Chooses action from distribution
         log_pi = log_pi.unsqueeze(-1)
         if self.use_automatic_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
@@ -166,8 +217,29 @@ class SACTrainer(TorchTrainer, LossFunction):
         q_new_actions = torch.min(
             self.qf1(obs, new_obs_actions),
             self.qf2(obs, new_obs_actions),
-        )
+        ) # Finds min-Q value from both Q tables for this action
         policy_loss = (alpha*log_pi - q_new_actions).mean()
+
+        """
+        State Estimator Loss
+        """
+        # obs.shape = torch.Size([256, 17]), type = torch.Tensor
+        # actions_without_measure.shape = torch.Size([256, 6]), type = torch.Tensor
+        # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
+        # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
+
+        # print("obs_only_measure size", obs_only_measure.size())
+        # print("action_too_long size", actions_without_measure_only_measure.size())
+        # print("obs_only_measure", obs_only_measure)
+        # print("action_too_long", actions_without_measure_only_measure)
+        if not measured:
+            rand = random.randrange(len(rewards))
+            next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[rand].unsqueeze(0)))
+            obs_only_measure = torch.cat((obs_only_measure, obs[rand].unsqueeze(0)))
+            actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
+                                                            actions_without_measure[rand].unsqueeze(0)))
+        state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
+        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
 
         """
         QF Loss
@@ -182,7 +254,7 @@ class SACTrainer(TorchTrainer, LossFunction):
             self.target_qf2(next_obs, new_next_actions),
         ) - alpha * new_log_pi
 
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
+        q_target = self.reward_scale * (rewards - costs) + (1. - terminals) * self.discount * target_q_values # Update with Cost
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 
@@ -191,6 +263,7 @@ class SACTrainer(TorchTrainer, LossFunction):
         """
         eval_statistics = OrderedDict()
         if not skip_statistics:
+            eval_statistics['State Estimator Loss'] = np.mean(ptu.get_numpy(state_estimator_loss))
             eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
@@ -223,6 +296,7 @@ class SACTrainer(TorchTrainer, LossFunction):
             qf1_loss=qf1_loss,
             qf2_loss=qf2_loss,
             alpha_loss=alpha_loss,
+            state_estimator_loss=state_estimator_loss,
         )
 
         return loss, eval_statistics
@@ -243,6 +317,7 @@ class SACTrainer(TorchTrainer, LossFunction):
             self.qf2,
             self.target_qf1,
             self.target_qf2,
+            self.state_estimator,
         ]
 
     @property
@@ -252,6 +327,7 @@ class SACTrainer(TorchTrainer, LossFunction):
             self.qf1_optimizer,
             self.qf2_optimizer,
             self.policy_optimizer,
+            self.state_estimator_optimizer,
         ]
 
     def get_snapshot(self):

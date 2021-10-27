@@ -4,66 +4,90 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import setup_logger
-from rlkit.samplers.data_collector import MdpPathCollector
+from rlkit.samplers.data_collector import ActiveMdpPathCollector
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
-from rlkit.torch.sac.sac import SACTrainer
+from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='6'
+os.environ['CUDA_VISIBLE_DEVICES']='7'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
+    action_dim_with_measure = action_dim + 1
+    cost = 1e-3
+    replay = False
+
+    # Environment and Algorithm Specifications:
+    # obs_dim = 17
+    # action_dim = 6
+    # Critic: (s, a, m) -> value for how good that action / measure/non-measure is in that state
+    # Actor: (s) -> (a, m)
 
     M = variant['layer_size']
     qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim,
+        input_size=obs_dim + action_dim_with_measure,
         output_size=1,
         hidden_sizes=[M, M],
     )
     qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim,
+        input_size=obs_dim + action_dim_with_measure,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim,
+        input_size=obs_dim + action_dim_with_measure,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim,
+        input_size=obs_dim + action_dim_with_measure,
         output_size=1,
         hidden_sizes=[M, M],
     )
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim,
-        action_dim=action_dim,
+        action_dim=action_dim_with_measure,
         hidden_sizes=[M, M],
     )
+
+    # State Estimator
+    state_estimator = ConcatMlp(
+        input_size=obs_dim + action_dim,
+        output_size=obs_dim,
+        hidden_sizes=[M, M],
+    )
+
     eval_policy = MakeDeterministic(policy)
-    eval_path_collector = MdpPathCollector(
+    eval_path_collector = ActiveMdpPathCollector(
         eval_env,
         eval_policy,
+        state_estimator,
+        cost,
     )
-    expl_path_collector = MdpPathCollector(
+    expl_path_collector = ActiveMdpPathCollector(
         expl_env,
         policy,
+        state_estimator,
+        cost,
     )
     replay_buffer = EnvReplayBuffer(
         variant['replay_buffer_size'],
         expl_env,
     )
-    trainer = SACTrainer(
+    trainer = ASACTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
+        state_estimator=state_estimator,
+        cost=cost,
+        replay=replay,
         **variant['trainer_kwargs']
     )
     algorithm = TorchBatchRLAlgorithm(
@@ -78,18 +102,15 @@ def experiment(variant):
     algorithm.to(ptu.device)
     algorithm.train()
 
-
-
-
 if __name__ == "__main__":
     # noinspection PyTypeChecker
     variant = dict(
-        algorithm="SAC",
+        algorithm="ASAC",
         version="normal",
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=3000,
+            num_epochs=10000,
             num_eval_steps_per_epoch=5000,
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,
@@ -107,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('SAC Baseline', variant=variant)
+    setup_logger('fixed but still crashy ASAC 1e-3', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
