@@ -241,13 +241,6 @@ def rollout(
     if len(actions.shape) == 1:
         actions = np.expand_dims(actions, 1)
 
-    # print("type(observations): ", type(observations))
-    # Print all observations, next_observations to file
-    # with open("observations.pt", "ab") as filelol:
-    #     torch.save(torch.Tensor(observations), filelol)
-    # with open("next_observations.pt", "ab") as filelol:
-    #     torch.save(torch.Tensor(next_observations), filelol)
-
     observations = np.array(observations)
     next_observations = np.array(next_observations)
     if return_dict_obs:
@@ -257,17 +250,13 @@ def rollout(
     if len(rewards.shape) == 1:
         rewards = rewards.reshape(-1, 1)
 
-    # np.savetxt("observations.txt", observations)
-    # np.savetxt("actions.txt", actions)
-    # np.savetxt("next_observations.txt", next_observations)
-    with open("observations.txt", "ab") as filelol:
-        np.savez(filelol, observations)
-    with open("actions.txt", "ab") as filelol:
-        np.savez(filelol, actions)
-    with open("next_observations.txt", "ab") as filelol:
-        np.savez(filelol, next_observations)
-    # with open("combined.npz", "ab") as filelol:
-    #     np.savez(filelol, observations, actions, next_observations)
+    # Save buffer to files for ASAC state estimator training
+    with open("observations.txt", "ab") as obs_file:
+        np.savetxt(obs_file, observations)
+    with open("actions.txt", "ab") as actions_file:
+        np.savetxt(actions_file, actions)
+    with open("next_observations.txt", "ab") as next_obs_file:
+        np.savetxt(next_obs_file, next_observations)
 
     return dict(
         observations=observations,

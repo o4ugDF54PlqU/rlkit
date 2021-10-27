@@ -147,9 +147,10 @@ class ASACTrainer(TorchTrainer, LossFunction):
         losses.qf2_loss.backward()
         self.qf2_optimizer.step()
 
-        self.state_estimator_optimizer.zero_grad()
-        losses.state_estimator_loss.backward()
-        self.state_estimator_optimizer.step()
+        if losses.state_estimator_loss is not None:
+            self.state_estimator_optimizer.zero_grad()
+            losses.state_estimator_loss.backward()
+            self.state_estimator_optimizer.step()
 
         self._n_train_steps_total += 1
 
@@ -228,18 +229,11 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
         # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
 
-        # print("obs_only_measure size", obs_only_measure.size())
-        # print("action_too_long size", actions_without_measure_only_measure.size())
-        # print("obs_only_measure", obs_only_measure)
-        # print("action_too_long", actions_without_measure_only_measure)
-        if not measured:
-            rand = random.randrange(len(rewards))
-            next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[rand].unsqueeze(0)))
-            obs_only_measure = torch.cat((obs_only_measure, obs[rand].unsqueeze(0)))
-            actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
-                                                            actions_without_measure[rand].unsqueeze(0)))
-        state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
-        state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
+        if measured:
+            state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
+            state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
+        else:
+            state_estimator_loss = None
 
         """
         QF Loss
