@@ -133,11 +133,10 @@ class ASACTrainer(TorchTrainer, LossFunction):
         elif replay == "npy":
             self.state_estimator = self.state_estimator.cuda()
             count = 0
-            while True:
-                count += 1
+            with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
+                    ) as act, open('next_observations.npy', 'rb') as next_obs:
                 try:
-                    with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
-                        ) as act, open('next_observations.npy', 'rb') as next_obs:
+                    while True:
                         state_estimator_pred = self.state_estimator(
                             torch.tensor(np.load(obs)).float().cuda(), 
                             torch.tensor(np.load(act)).float().cuda()
@@ -149,9 +148,9 @@ class ASACTrainer(TorchTrainer, LossFunction):
                         self.state_estimator_optimizer.zero_grad()
                         state_estimator_loss.backward()
                         self.state_estimator_optimizer.step()
+                        count += 1
                 except ValueError:
                     print(f"\nend of file, {count} lines\n")
-                    break
 
     def train_from_torch(self, batch):
         # This is the entry point for training for AsSAC
