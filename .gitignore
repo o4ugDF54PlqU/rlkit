@@ -15,3 +15,4 @@ actions.npy
 next_observations.npy
 observations.npy
 .vscode/launch.json
+test.npy
