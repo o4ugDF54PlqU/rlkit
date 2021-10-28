@@ -251,12 +251,12 @@ def rollout(
         rewards = rewards.reshape(-1, 1)
 
     # Save buffer to files for ASAC state estimator training
-    with open("observations.txt", "ab") as obs_file:
-        np.savetxt(obs_file, observations)
-    with open("actions.txt", "ab") as actions_file:
-        np.savetxt(actions_file, actions)
-    with open("next_observations.txt", "ab") as next_obs_file:
-        np.savetxt(next_obs_file, next_observations)
+    with open('observations.npy', 'ab') as obs_file:
+        np.save(obs_file, observations)
+    with open("actions.npy", "ab") as actions_file:
+        np.save(actions_file, actions)
+    with open("next_observations.npy", "ab") as next_obs_file:
+        np.save(next_obs_file, next_observations)
 
     return dict(
         observations=observations,

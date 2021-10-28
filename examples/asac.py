@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='7'
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -19,7 +19,7 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
     cost = 1e-3
-    replay = False
+    replay = "npy"
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -111,10 +111,10 @@ if __name__ == "__main__":
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
             num_epochs=10000,
-            num_eval_steps_per_epoch=5000,
-            num_trains_per_train_loop=1000,
-            num_expl_steps_per_train_loop=1000,
-            min_num_steps_before_training=1000,
+            num_eval_steps_per_epoch=1000,
+            num_trains_per_train_loop=200,
+            num_expl_steps_per_train_loop=200,
+            min_num_steps_before_training=200,
             max_path_length=1000,
             batch_size=256,
         ),

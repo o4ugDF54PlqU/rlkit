@@ -40,7 +40,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
             policy_lr=1e-3,
             qf_lr=1e-3,
             optimizer_class=optim.Adam,
-            replay=False,
+            replay="nope",
 
             soft_target_tau=1e-2,
             target_update_period=1,
@@ -107,18 +107,45 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
 
-        if replay and os.path.exists("observations.txt"):
+        if replay == "txt":
             # Read in buffer for training ASAC with "expert" data
-            observations = torch.Tensor(np.loadtxt("observations.txt")).cuda()
-            actions = torch.Tensor(np.loadtxt("actions.txt")).cuda()
-            next_observations = torch.Tensor(np.loadtxt("next_observations.txt")).cuda()
+            observations = torch.Tensor(np.loadtxt("observations.txt"))
+            print("loaded obs")
+            actions = torch.Tensor(np.loadtxt("actions.txt"))
+            print("loaded acts")
+            next_observations = torch.Tensor(np.loadtxt("next_observations.txt"))
+            print("loaded nxt_obs")
             self.state_estimator = self.state_estimator.cuda()
             # If we decide to add a loop instead of a single gradient descent, make here
-            state_estimator_pred = self.state_estimator(observations, actions)
-            state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_observations)
-            self.state_estimator_optimizer.zero_grad()
-            state_estimator_loss.backward()
-            self.state_estimator_optimizer.step()
+            for i in range(300):
+                print(i)
+                state_estimator_pred = self.state_estimator(
+                    observations[1000*i:1000*(i+1)].cuda(), 
+                    actions[1000*i:1000*(i+1)].cuda()
+                )
+                state_estimator_loss = self.state_estimator_criterion(
+                    state_estimator_pred, 
+                    next_observations[1000*i:1000*(i+1)].cuda()
+                )
+                self.state_estimator_optimizer.zero_grad()
+                state_estimator_loss.backward()
+                self.state_estimator_optimizer.step()
+        elif replay == "npy":
+            self.state_estimator = self.state_estimator.cuda()
+            for i in range(900):
+                with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
+                    ) as act, open('next_observations.npy', 'rb') as next_obs:
+                    state_estimator_pred = self.state_estimator(
+                        torch.tensor(np.load(obs)).float().cuda(), 
+                        torch.tensor(np.load(act)).float().cuda()
+                    )
+                    state_estimator_loss = self.state_estimator_criterion(
+                        state_estimator_pred, 
+                        torch.tensor(np.load(next_obs)).float().cuda()
+                    )
+                    self.state_estimator_optimizer.zero_grad()
+                    state_estimator_loss.backward()
+                    self.state_estimator_optimizer.step()
 
     def train_from_torch(self, batch):
         # This is the entry point for training for AsSAC
