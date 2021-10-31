@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='7'
+os.environ['CUDA_VISIBLE_DEVICES']='6'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -110,11 +110,11 @@ if __name__ == "__main__":
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=10000,
-            num_eval_steps_per_epoch=1000,
-            num_trains_per_train_loop=200,
-            num_expl_steps_per_train_loop=200,
-            min_num_steps_before_training=200,
+            num_epochs=1000,
+            num_eval_steps_per_epoch=5000,
+            num_trains_per_train_loop=1000,
+            num_expl_steps_per_train_loop=1000,
+            min_num_steps_before_training=1000,
             max_path_length=1000,
             batch_size=256,
         ),
@@ -128,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('fixed but still crashy ASAC 1e-3', variant=variant)
+    setup_logger('ASAC 1e-3', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

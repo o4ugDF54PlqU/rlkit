@@ -116,16 +116,19 @@ class ASACTrainer(TorchTrainer, LossFunction):
             next_observations = torch.Tensor(np.loadtxt("next_observations.txt"))
             print("loaded nxt_obs")
             self.state_estimator = self.state_estimator.cuda()
+
+            all_indices = list(range(len(observations)))
             # If we decide to add a loop instead of a single gradient descent, make here
-            for i in range(300):
+            for i in range(1000):
                 print(i)
+                random_sample_indices = random.sample(all_indices, 1000)
                 state_estimator_pred = self.state_estimator(
-                    observations[1000*i:1000*(i+1)].cuda(), 
-                    actions[1000*i:1000*(i+1)].cuda()
+                    [observations[index] for index in random_sample_indices].cuda(), 
+                    [actions[index] for index in random_sample_indices].cuda()
                 )
                 state_estimator_loss = self.state_estimator_criterion(
                     state_estimator_pred, 
-                    next_observations[1000*i:1000*(i+1)].cuda()
+                    [next_observations[index] for index in random_sample_indices].cuda()
                 )
                 self.state_estimator_optimizer.zero_grad()
                 state_estimator_loss.backward()
