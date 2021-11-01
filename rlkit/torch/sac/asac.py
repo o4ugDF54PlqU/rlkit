@@ -124,7 +124,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
                 state_estimator_pred = self.state_estimator(
                     [observations[index] for index in random_sample_indices].cuda(), 
                     [actions[index] for index in random_sample_indices].cuda()
-                )
+                )[:, :, np.random.randint(0, 3)]
                 state_estimator_loss = self.state_estimator_criterion(
                     state_estimator_pred, 
                     [next_observations[index] for index in random_sample_indices].cuda()
@@ -138,18 +138,25 @@ class ASACTrainer(TorchTrainer, LossFunction):
             observations = [[0.]*17]*buffer_size
             actions = [[0.]*6]*buffer_size
             next_observations = [[0.]*17]*buffer_size
+            index = 0
             with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
                     ) as act, open('next_observations.npy', 'rb') as next_obs:
                 try:
                     while True:
-                        observations[count*1000:(count+1)*1000] = np.load(obs).tolist()
-                        actions[count*1000:(count+1)*1000] = np.load(act).tolist()
-                        next_observations[count * 1000 : (count + 1) * 1000] = np.load(next_obs).tolist()
+                        temp = np.load(obs)
+                        size = temp.shape[0]
+                        observations[index:size + index] = temp.tolist()
+                        actions[index:size + index] = np.load(act).tolist()
+                        next_observations[index:size + index] = np.load(next_obs).tolist()
                         count += 1
+                        index += size
                         if count >= buffer_size / 1000: # Only read first quarter million steps
                             break
                 except ValueError:
                     print(f"\nend of file, {count} lines\n")
+                    observations = observations[:index]
+                    actions = actions[:index]
+                    next_observations = next_observations[:index]
 
             print("actions shape: ", np.shape(actions))
             print("actions[1]: ", actions[1])
@@ -165,7 +172,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
                 state_estimator_pred = self.state_estimator(
                     obs_sample, 
                     acts_sample
-                )
+                )[:, :, np.random.randint(0, 3)]
                 state_estimator_loss = self.state_estimator_criterion(
                     state_estimator_pred, 
                     next_obs_sample
@@ -285,7 +292,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
 
         if measured:
-            state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)
+            state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)[:, :, np.random.randint(0, 3)]
             state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
         else:
             state_estimator_loss = None

@@ -7,7 +7,7 @@ from rlkit.launchers.launcher_util import setup_logger
 from rlkit.samplers.data_collector import ActiveMdpPathCollector
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.asac import ASACTrainer
-from rlkit.torch.networks import ConcatMlp
+from rlkit.torch.networks import ConcatMlp, ConcatParallelMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
 # os.environ['CUDA_VISIBLE_DEVICES']='6'
@@ -55,9 +55,15 @@ def experiment(variant):
     )
 
     # State Estimator
-    state_estimator = ConcatMlp(
+    # state_estimator = ConcatMlp(
+    #     input_size=obs_dim + action_dim,
+    #     output_size=obs_dim,
+    #     hidden_sizes=[M, M],
+    # )
+    state_estimator = ConcatParallelMlp(
+        num_heads=3,
         input_size=obs_dim + action_dim,
-        output_size=obs_dim,
+        output_size_per_mlp=obs_dim,
         hidden_sizes=[M, M],
     )
 

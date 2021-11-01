@@ -341,3 +341,46 @@ class ParallelMlp(nn.Module):
         flat = self.network(x)
         batch_size = x.shape[0]
         return flat.view(batch_size, -1, self.num_heads)
+
+class ConcatParallelMlp(ParallelMlp):
+    """
+    Efficient implementation of multiple MLPs with identical architectures.
+
+                         .-> mlp 0
+                        /
+    (input, input, ...) ---> mlp 1
+                        \
+                         '-> mlp 2
+
+    See https://discuss.pytorch.org/t/parallel-execution-of-modules-in-nn-modulelist/43940/7
+    for details
+
+    The last dimension of the output corresponds to the MLP index.
+
+    Concatenate inputs along dimension and then pass through Parallel MLP.
+    """
+    def __init__(
+            self,
+            num_heads,
+            input_size,
+            output_size_per_mlp,
+            hidden_sizes,
+            dim=1,
+            hidden_activation='relu',
+            output_activation='identity',
+            input_is_already_expanded=False,
+    ):
+        super().__init__(
+            num_heads,
+            input_size,
+            output_size_per_mlp,
+            hidden_sizes,
+            hidden_activation='relu',
+            output_activation='identity',
+            input_is_already_expanded=False,
+        )
+        self.dim = dim
+
+    def forward(self, *inputs):
+        flat_inputs = torch.cat(inputs, dim=self.dim)
+        return super().forward(flat_inputs)

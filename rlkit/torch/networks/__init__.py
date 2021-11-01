@@ -14,9 +14,10 @@ from rlkit.torch.networks.linear_transform import LinearTransform
 from rlkit.torch.networks.normalization import LayerNorm
 from rlkit.torch.networks.mlp import (
     Mlp, ConcatMlp, MlpPolicy, TanhMlpPolicy,
-    MlpQf,
+    MlpQf,  
     MlpQfWithObsProcessor,
     ConcatMultiHeadedMlp,
+    ConcatParallelMlp,
 )
 from rlkit.torch.networks.pretrained_cnn import PretrainedCNN
 from rlkit.torch.networks.two_headed_mlp import TwoHeadMlp
