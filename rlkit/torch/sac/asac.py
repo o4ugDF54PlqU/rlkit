@@ -57,11 +57,11 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
-        self.state_estimator = state_estimator.cuda()
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
         self.cost = cost
         self.replay = replay
+        self.state_estimator = state_estimator
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -80,9 +80,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self.plotter = plotter
         self.render_eval_paths = render_eval_paths
 
-        self.state_estimator_criterion = nn.MSELoss()
         self.qf_criterion = nn.MSELoss()
-        self.vf_criterion = nn.MSELoss()
 
         self.policy_optimizer = optimizer_class(
             self.policy.parameters(),
@@ -95,10 +93,6 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self.qf2_optimizer = optimizer_class(
             self.qf2.parameters(),
             lr=qf_lr,
-        )
-        self.state_estimator_optimizer = optimizer_class(
-            self.state_estimator.parameters(),
-            lr=state_estimator_lr,
         )
 
         self.discount = discount
@@ -121,17 +115,15 @@ class ASACTrainer(TorchTrainer, LossFunction):
             for i in range(1000):
                 print(i)
                 random_sample_indices = random.sample(all_indices, 1000)
-                state_estimator_pred = self.state_estimator(
+                state_estimator_pred = self.state_estimator.get_predictions(
                     [observations[index] for index in random_sample_indices].cuda(), 
                     [actions[index] for index in random_sample_indices].cuda()
-                )[:, :, np.random.randint(0, 3)]
-                state_estimator_loss = self.state_estimator_criterion(
+                )
+                state_estimator_losses = self.state_estimator.get_losses(
                     state_estimator_pred, 
                     [next_observations[index] for index in random_sample_indices].cuda()
                 )
-                self.state_estimator_optimizer.zero_grad()
-                state_estimator_loss.backward()
-                self.state_estimator_optimizer.step()
+                self.state_estimator.update_networks(state_estimator_losses)
         elif replay == "npy":
             count = 0
             buffer_size = int(1e6)
@@ -150,7 +142,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
                         next_observations[index:size + index] = np.load(next_obs).tolist()
                         count += 1
                         index += size
-                        if count >= buffer_size / 1000: # Only read first quarter million steps
+                        if count >= buffer_size / 1000: # Do not read all steps into buffer - too large
                             break
                 except ValueError:
                     print(f"\nend of file, {count} lines\n")
@@ -158,32 +150,27 @@ class ASACTrainer(TorchTrainer, LossFunction):
                     actions = actions[:index]
                     next_observations = next_observations[:index]
 
-            print("actions shape: ", np.shape(actions))
-            print("actions[1]: ", actions[1])
-            print("observations.shape: ", np.shape(observations))
-            print("next_observations.shape: ", np.shape(next_observations))
             print("Finished reading buffer files, beginning state-estimator training")
             all_indices = list(range(len(observations)))
-            for i in range(100):
+            for i in range(500):
+                print(f"Beginning training round {i}")
                 random_sample_indices = random.sample(all_indices, 1000)
                 obs_sample = torch.tensor([observations[index] for index in random_sample_indices]).float().cuda()
                 acts_sample = torch.tensor([actions[index] for index in random_sample_indices]).float().cuda()
                 next_obs_sample = torch.tensor([next_observations[index] for index in random_sample_indices]).float().cuda()
-                state_estimator_pred = self.state_estimator(
+                state_estimator_pred = self.state_estimator.get_predictions(
                     obs_sample, 
                     acts_sample
-                )[:, :, np.random.randint(0, 3)]
-                state_estimator_loss = self.state_estimator_criterion(
+                )
+                state_estimator_losses = self.state_estimator.get_losses(
                     state_estimator_pred, 
                     next_obs_sample
                 )
-                self.state_estimator_optimizer.zero_grad()
-                state_estimator_loss.backward()
-                self.state_estimator_optimizer.step()
+                self.state_estimator.update_networks(state_estimator_losses)
             print("State estimator training complete")
 
     def train_from_torch(self, batch):
-        # This is the entry point for training for AsSAC
+        # This is the entry point for training for ASAC
         gt.blank_stamp()
         losses, stats = self.compute_loss(
             batch,
@@ -210,9 +197,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self.qf2_optimizer.step()
 
         if losses.state_estimator_loss is not None:
-            self.state_estimator_optimizer.zero_grad()
-            losses.state_estimator_loss.backward()
-            self.state_estimator_optimizer.step()
+            self.state_estimator.update_networks(losses.state_estimator_loss)
 
         self._n_train_steps_total += 1
 
@@ -247,22 +232,27 @@ class ASACTrainer(TorchTrainer, LossFunction):
         actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
 
-        next_obs_only_measure = torch.Tensor([]).cuda()
-        obs_only_measure = torch.Tensor([]).cuda()
-        actions_without_measure_only_measure = torch.Tensor([]).cuda()
-        measured = False
+        next_obs_only_measure = torch.zeros(next_obs.shape).cuda() # Fill only with measured next_observations
+        obs_only_measure = torch.zeros(obs.shape).cuda() # Observations corresponding to above next_observations
+        actions_without_measure_only_measure = torch.zeros(actions_without_measure.shape).cuda() # Acts corresponding to above
+        num_times_measured = 0
 
         # Calculate costs based on measure/non-measure
+        # Fill _only_measure tensors only with steps that model measured
         costs = torch.zeros(rewards.size()).cuda()
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
-                measured = True
                 costs[i] = self.cost
+                next_obs_only_measure[num_times_measured] = next_obs[i]
+                obs_only_measure[num_times_measured] = obs[i]
+                actions_without_measure_only_measure[num_times_measured] = actions_without_measure[i]
+
+                num_times_measured += 1
                 
-                next_obs_only_measure = torch.cat((next_obs_only_measure, next_obs[i].unsqueeze(0)))
-                obs_only_measure = torch.cat((obs_only_measure, obs[i].unsqueeze(0)))
-                actions_without_measure_only_measure = torch.cat((actions_without_measure_only_measure,
-                                                                actions_without_measure[i].unsqueeze(0)))
+        # slice off empty space
+        next_obs_only_measure = next_obs_only_measure[:num_times_measured]
+        obs_only_measure = obs_only_measure[:num_times_measured]
+        actions_without_measure_only_measure = actions_without_measure_only_measure[:num_times_measured]
 
         """
         Policy and Alpha Loss
@@ -291,11 +281,17 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # state_estimator_pred = self.state_estimator(obs, actions_without_measure)
         # state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs)
 
-        if measured:
-            state_estimator_pred = self.state_estimator(obs_only_measure, actions_without_measure_only_measure)[:, :, np.random.randint(0, 3)]
-            state_estimator_loss = self.state_estimator_criterion(state_estimator_pred, next_obs_only_measure)
+        if num_times_measured > 0:
+            state_estimator_pred = self.state_estimator.get_predictions(
+                    obs_only_measure, 
+                    actions_without_measure_only_measure
+            )
+            state_estimator_losses = self.state_estimator.get_losses(
+                state_estimator_pred, 
+                next_obs_only_measure
+            )
         else:
-            state_estimator_loss = None
+            state_estimator_losses = None
 
         """
         QF Loss
@@ -319,7 +315,13 @@ class ASACTrainer(TorchTrainer, LossFunction):
         """
         eval_statistics = OrderedDict()
         if not skip_statistics:
-            eval_statistics['State Estimator Loss'] = np.mean(ptu.get_numpy(state_estimator_loss))
+            total_loss = 0.
+            if state_estimator_losses is not None:
+                for i in range(self.state_estimator.get_ensemble_count()):
+                    individual_loss = np.mean(ptu.get_numpy(state_estimator_losses[i]))
+                    total_loss += individual_loss
+                    eval_statistics[f'State Estimator {i} Loss'] = individual_loss
+                eval_statistics['State Estimator Mean Loss'] = total_loss / self.state_estimator.get_ensemble_count()
             eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
@@ -352,7 +354,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
             qf1_loss=qf1_loss,
             qf2_loss=qf2_loss,
             alpha_loss=alpha_loss,
-            state_estimator_loss=state_estimator_loss,
+            state_estimator_loss=state_estimator_losses,
         )
 
         return loss, eval_statistics

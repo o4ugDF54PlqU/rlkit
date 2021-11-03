@@ -18,6 +18,7 @@ from rlkit.torch.networks.mlp import (
     MlpQfWithObsProcessor,
     ConcatMultiHeadedMlp,
     ConcatParallelMlp,
+    ConcatEnsembleMlp,
 )
 from rlkit.torch.networks.pretrained_cnn import PretrainedCNN
 from rlkit.torch.networks.two_headed_mlp import TwoHeadMlp

@@ -130,7 +130,8 @@ def active_rollout(
             costs.append(0.)
             a_tensor = torch.unsqueeze(torch.Tensor(a), 0).cuda() # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
             o_tensor = torch.unsqueeze(torch.Tensor(o), 0).cuda()
-            state_est_next_o = state_estimator(o_tensor, a_tensor)[:, :, np.random.randint(0, 3)] # Tensor: torch.Size([1, 17])
+            state_est_next_o = state_estimator.get_predictions(o_tensor, a_tensor)[
+                np.random.randint(0, state_estimator.get_ensemble_count())] # Tensor: torch.Size([1, 17])
             next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
         else:
             costs.append(cost)

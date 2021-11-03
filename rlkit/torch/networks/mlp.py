@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+import torch.optim as optim
 
 from rlkit.policies.base import Policy
 from rlkit.pythonplusplus import identity
@@ -9,7 +10,6 @@ from rlkit.torch.core import PyTorchModule, eval_np
 from rlkit.torch.data_management.normalizer import TorchFixedNormalizer
 from rlkit.torch.networks import LayerNorm
 from rlkit.torch.pytorch_util import activation_from_string
-
 
 class Mlp(PyTorchModule):
     def __init__(
@@ -384,3 +384,80 @@ class ConcatParallelMlp(ParallelMlp):
     def forward(self, *inputs):
         flat_inputs = torch.cat(inputs, dim=self.dim)
         return super().forward(flat_inputs)
+
+
+class ConcatEnsembleMlp():
+    def __init__(
+            self,
+            hidden_sizes,
+            output_size,
+            input_size,
+            init_w=3e-3,
+            hidden_activation=F.relu,
+            output_activation=identity,
+            hidden_init=ptu.fanin_init,
+            b_init_value=0.,
+            layer_norm=False,
+            layer_norm_kwargs=None,
+            ensemble_count=1,
+            optimizer_class=optim.Adam,
+            state_estimator_lr=1e-3
+    ):
+        self.ensemble_count = ensemble_count
+        self.loss_criterion = nn.MSELoss()
+        self.individual_mlps = [ConcatMlp(
+                hidden_sizes,
+                output_size,
+                input_size,
+                init_w,
+                hidden_activation,
+                output_activation,
+                hidden_init,
+                b_init_value,
+                layer_norm,
+                layer_norm_kwargs
+            ).cuda() for i in range(self.ensemble_count)]
+        self.state_estimator_optimizers = [optimizer_class(
+                mlp.parameters(),
+                lr=state_estimator_lr,
+            ) for mlp in self.individual_mlps]
+
+
+    def get_predictions(self, *inputs):
+        return [mlp(inputs[0], inputs[1]) for mlp in self.individual_mlps]
+
+
+    def get_losses(self, predictions, true_next_obs):
+        if self.ensemble_count != len(predictions):
+            print("Dimension mismatch in ensemble MLP get_loss function")
+            print("len(true_next_obs): ", len(true_next_obs))
+            print("self.ensemble_count: ", self.ensemble_count)
+            exit(1)
+        return [self.loss_criterion(predictions[i], true_next_obs) for i in range(self.ensemble_count)]
+
+
+    def update_networks(self, losses):
+        if len(losses) != self.ensemble_count:
+            print("Dimension mismatch in ensemble MLP update_networks function")
+            print("len(losses): ", len(losses))
+            print("self.ensemble_count: ", self.ensemble_count)
+            exit(1)
+        for i in range(self.ensemble_count):
+            self.state_estimator_optimizers[i].zero_grad()
+            losses[i].backward()
+            self.state_estimator_optimizers[i].step()
+        return
+
+
+    def get_ensemble_count(self):
+        return self.ensemble_count
+
+    
+    def to(self, device):
+        for mlp in self.individual_mlps:
+            mlp.to(device)
+
+    
+    def train(self, mode):
+        for mlp in self.individual_mlps:
+            mlp.train(mode)
