@@ -100,6 +100,8 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._n_train_steps_total = 0
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
+        num_batch = 10000
+        num_sample_steps = 10000
 
         print("beginning relay")
         if replay == "txt":
@@ -112,9 +114,9 @@ class ASACTrainer(TorchTrainer, LossFunction):
             next_observations = torch.Tensor(np.loadtxt("next_observations.txt"))
             print("loaded nxt_obs")
             all_indices = list(range(len(observations)))
-            for i in range(1000):
+            for i in range(num_batch):
                 print(i)
-                random_sample_indices = random.sample(all_indices, 1000)
+                random_sample_indices = random.sample(all_indices, num_sample_steps)
                 state_estimator_pred = self.state_estimator.get_predictions(
                     [observations[index] for index in random_sample_indices].cuda(), 
                     [actions[index] for index in random_sample_indices].cuda()
@@ -126,7 +128,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
                 self.state_estimator.update_networks(state_estimator_losses)
         elif replay == "npy":
             count = 0
-            buffer_size = int(1e6)
+            buffer_size = int(1e7)
             observations = [[0.]*17]*buffer_size
             actions = [[0.]*6]*buffer_size
             next_observations = [[0.]*17]*buffer_size
@@ -152,9 +154,9 @@ class ASACTrainer(TorchTrainer, LossFunction):
 
             print("Finished reading buffer files, beginning state-estimator training")
             all_indices = list(range(len(observations)))
-            for i in range(500):
+            for i in range(num_batch):
                 print(f"Beginning training round {i}")
-                random_sample_indices = random.sample(all_indices, 1000)
+                random_sample_indices = random.sample(all_indices, num_sample_steps)
                 obs_sample = torch.tensor([observations[index] for index in random_sample_indices]).float().cuda()
                 acts_sample = torch.tensor([actions[index] for index in random_sample_indices]).float().cuda()
                 next_obs_sample = torch.tensor([next_observations[index] for index in random_sample_indices]).float().cuda()

@@ -117,6 +117,7 @@ def active_rollout(
         a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs) # Error
 
         measure = a[-1] # Measure value
+        # measure = 1
         a = a[:-1] # Gets rid of measure element
 
         if full_o_postprocess_func:
