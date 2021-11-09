@@ -19,7 +19,7 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
     cost = 1e-3
-    replay = "npy"
+    replay = "concat"
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -129,6 +129,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('test10k15k', variant=variant)
+    setup_logger('test concat', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

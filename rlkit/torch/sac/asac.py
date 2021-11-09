@@ -101,7 +101,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
         num_batch = 10000
-        num_sample_steps = 10000
+        num_sample_steps = 8000
 
         print("beginning relay")
         if replay == "txt":
@@ -126,31 +126,39 @@ class ASACTrainer(TorchTrainer, LossFunction):
                     [next_observations[index] for index in random_sample_indices].cuda()
                 )
                 self.state_estimator.update_networks(state_estimator_losses)
-        elif replay == "npy":
-            count = 0
-            buffer_size = int(1e7)
-            observations = [[0.]*17]*buffer_size
-            actions = [[0.]*6]*buffer_size
-            next_observations = [[0.]*17]*buffer_size
-            index = 0
-            with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
-                    ) as act, open('next_observations.npy', 'rb') as next_obs:
-                try:
-                    while True:
-                        temp = np.load(obs)
-                        size = temp.shape[0]
-                        observations[index:size + index] = temp.tolist()
-                        actions[index:size + index] = np.load(act).tolist()
-                        next_observations[index:size + index] = np.load(next_obs).tolist()
-                        count += 1
-                        index += size
-                        if count >= buffer_size / 1000: # Do not read all steps into buffer - too large
-                            break
-                except ValueError:
-                    print(f"\nend of file, {count} lines\n")
-                    observations = observations[:index]
-                    actions = actions[:index]
-                    next_observations = next_observations[:index]
+        elif replay == "npy" or replay == "concat":
+            if replay == "npy":
+                count = 0
+                buffer_size = int(1e7)
+                observations = [[0.]*17]*buffer_size
+                actions = [[0.]*6]*buffer_size
+                next_observations = [[0.]*17]*buffer_size
+                index = 0
+                with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
+                        ) as act, open('next_observations.npy', 'rb') as next_obs:
+                    try:
+                        while True:
+                            temp = np.load(obs)
+                            size = temp.shape[0]
+                            observations[index:size + index] = temp.tolist()
+                            actions[index:size + index] = np.load(act).tolist()
+                            next_observations[index:size + index] = np.load(next_obs).tolist()
+                            count += 1
+                            index += size
+                            if count >= buffer_size / 1000: # Do not read all steps into buffer - too large
+                                break
+                    except ValueError:
+                        print(f"\nend of file, {count} lines\n")
+                        observations = observations[:index]
+                        actions = actions[:index]
+                        next_observations = next_observations[:index]
+            else:
+                with open('data/replay buffer/concat_obs.npy', 'rb') as f:
+                    observations = np.load(f)
+                with open('data/replay buffer/concat_acts.npy', 'rb') as f:
+                    actions = np.load(f)
+                with open('data/replay buffer/concat_nextobs.npy', 'rb') as f:
+                    next_observations = np.load(f)
 
             print("Finished reading buffer files, beginning state-estimator training")
             all_indices = list(range(len(observations)))
