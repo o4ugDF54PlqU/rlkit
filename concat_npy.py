@@ -8,7 +8,7 @@ actions = [[0.]*6]*buffer_size
 next_observations = [[0.]*17]*buffer_size
 index = 0
 prefix = "data/replay buffer"
-for i in range(5):
+for i in [-1]:
     count = 0
     with open(f'{prefix}/run {i+1}/observations.npy', 'rb') as obs, open(
         f'{prefix}/run {i+1}/actions.npy', 'rb') as act, open(

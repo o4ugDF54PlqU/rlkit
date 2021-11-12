@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp, ConcatEnsembleMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='7'
+# os.environ['CUDA_VISIBLE_DEVICES']='7'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -129,6 +129,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('test concat', variant=variant)
+    setup_logger('concat 1e-4', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
