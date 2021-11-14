@@ -100,8 +100,8 @@ class ASACTrainer(TorchTrainer, LossFunction):
         self._n_train_steps_total = 0
         self._need_to_update_eval_statistics = True
         self.eval_statistics = OrderedDict()
-        num_batch = 6000
-        num_sample_steps = 4000
+        num_batch = 8000
+        num_sample_steps = 6000
 
         print("beginning relay")
         if replay == "txt":

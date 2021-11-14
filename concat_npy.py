@@ -39,9 +39,9 @@ observations = observations[:index]
 actions = actions[:index]
 next_observations = next_observations[:index]
 
-with open(f'{prefix}/concat_obs_{begin}_{end}.npy', 'wb') as f:
+with open(f'{prefix}/concat_obs.npy', 'wb') as f:
     np.save(f,observations)
-with open(f'{prefix}/concat_acts_{begin}_{end}.npy', 'wb') as f:
+with open(f'{prefix}/concat_acts.npy', 'wb') as f:
     np.save(f,actions)
-with open(f'{prefix}/concat_nextobs_{begin}_{end}.npy', 'wb') as f:
+with open(f'{prefix}/concat_nextobs.npy', 'wb') as f:
     np.save(f,next_observations)
