@@ -3,35 +3,45 @@ import os
 
 
 buffer_size = int(1e9)
-observations = [[0.]*17]*buffer_size
-actions = [[0.]*6]*buffer_size
-next_observations = [[0.]*17]*buffer_size
+observations = np.zeros((buffer_size,17))
+actions = np.zeros((buffer_size,6))
+next_observations = np.zeros((buffer_size,17))
 index = 0
 prefix = "data/replay buffer"
-for i in [-1]:
+begin = 0
+end = 6
+for i in range(begin, end+1):
     count = 0
-    with open(f'{prefix}/run {i+1}/observations.npy', 'rb') as obs, open(
-        f'{prefix}/run {i+1}/actions.npy', 'rb') as act, open(
-        f'{prefix}/run {i+1}/next_observations.npy', 'rb') as next_obs:
-        try:
-            while True:
-                temp = np.load(obs)
-                size = temp.shape[0]
-                observations[index:size + index] = temp.tolist()
-                actions[index:size + index] = np.load(act).tolist()
-                next_observations[index:size + index] = np.load(next_obs).tolist()
-                count += 1
-                index += size
-        except ValueError:
-            print(f"\nend of file, {count} lines\n")
+    try:
+        with open(f'{prefix}/run {i}/observations.npy', 'rb') as obs, open(
+            f'{prefix}/run {i}/actions.npy', 'rb') as act, open(
+            f'{prefix}/run {i}/next_observations.npy', 'rb') as next_obs:
+            try:
+                while True:
+                    temp_obs = np.load(obs)
+                    temp_act = np.load(act)
+                    temp_nextobs = np.load(next_obs)
+                    if i != 6 or count % 100 == 0:
+                        size = temp_obs.shape[0]
+                        observations[index:size + index] = temp_obs
+                        actions[index:size + index] = temp_act
+                        next_observations[index:size + index] = temp_nextobs
+                        index += size
+                    count += 1
+            except ValueError:
+                print(f"\nend of run {i}, {count} lines\n")
+    except FileNotFoundError:
+        print(f"run {i} not found")
+        if i == 0:
+            exit(0)
 
 observations = observations[:index]
 actions = actions[:index]
 next_observations = next_observations[:index]
 
-with open(f'{prefix}/concat_obs.npy', 'wb') as f:
+with open(f'{prefix}/concat_obs_{begin}_{end}.npy', 'wb') as f:
     np.save(f,observations)
-with open(f'{prefix}/concat_acts.npy', 'wb') as f:
+with open(f'{prefix}/concat_acts_{begin}_{end}.npy', 'wb') as f:
     np.save(f,actions)
-with open(f'{prefix}/concat_nextobs.npy', 'wb') as f:
+with open(f'{prefix}/concat_nextobs_{begin}_{end}.npy', 'wb') as f:
     np.save(f,next_observations)

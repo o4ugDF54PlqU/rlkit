@@ -131,9 +131,9 @@ class ASACTrainer(TorchTrainer, LossFunction):
             if replay == "npy":
                 count = 0
                 buffer_size = int(1e9)
-                observations = [[0.]*17]*buffer_size
-                actions = [[0.]*6]*buffer_size
-                next_observations = [[0.]*17]*buffer_size
+                observations = np.zeros((buffer_size,17))
+                actions = np.zeros((buffer_size,6))
+                next_observations = np.zeros((buffer_size,17))
                 index = 0
                 with open('observations.npy', 'rb') as obs, open('actions.npy', 'rb'
                         ) as act, open('next_observations.npy', 'rb') as next_obs:
@@ -141,9 +141,9 @@ class ASACTrainer(TorchTrainer, LossFunction):
                         while True:
                             temp = np.load(obs)
                             size = temp.shape[0]
-                            observations[index:size + index] = temp.tolist()
-                            actions[index:size + index] = np.load(act).tolist()
-                            next_observations[index:size + index] = np.load(next_obs).tolist()
+                            observations[index:size + index] = temp
+                            actions[index:size + index] = np.load(act)
+                            next_observations[index:size + index] = np.load(next_obs)
                             count += 1
                             index += size
                             if index >= buffer_size: # Do not read all steps into buffer - too large
@@ -163,13 +163,17 @@ class ASACTrainer(TorchTrainer, LossFunction):
                     next_observations = np.load(f)
 
             print("Finished reading buffer files, beginning state-estimator training")
-            all_indices = list(range(len(observations)))
+            obs_size = len(observations)
+            observations = torch.tensor(observations).float().cuda()
+            actions = torch.tensor(actions).float().cuda()
+            next_observations = torch.tensor(next_observations).float().cuda()
+            probs = torch.ones(obs_size).cuda()
             for i in range(num_batch):
                 print(f"Beginning training round {i}")
-                random_sample_indices = random.sample(all_indices, num_sample_steps)
-                obs_sample = torch.tensor([observations[index] for index in random_sample_indices]).float().cuda()
-                acts_sample = torch.tensor([actions[index] for index in random_sample_indices]).float().cuda()
-                next_obs_sample = torch.tensor([next_observations[index] for index in random_sample_indices]).float().cuda()
+                index = probs.multinomial(num_samples=num_sample_steps, replacement=False)
+                obs_sample = observations[index]
+                acts_sample = actions[index]
+                next_obs_sample = next_observations[index]
                 state_estimator_pred = self.state_estimator.get_predictions(
                     obs_sample, 
                     acts_sample

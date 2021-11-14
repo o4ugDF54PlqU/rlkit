@@ -10,7 +10,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp, ConcatEnsembleMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-# os.environ['CUDA_VISIBLE_DEVICES']='7'
+os.environ['CUDA_VISIBLE_DEVICES']='7'
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -28,6 +28,13 @@ def experiment(variant):
     # Actor: (s) -> (a, m)
 
     M = variant['layer_size']
+    # State Estimator
+    state_estimator = ConcatEnsembleMlp(
+        hidden_sizes=[M, M],
+        output_size=obs_dim,
+        input_size=obs_dim + action_dim,
+        ensemble_count=3
+    )
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim_with_measure,
         output_size=1,
@@ -52,14 +59,6 @@ def experiment(variant):
         obs_dim=obs_dim,
         action_dim=action_dim_with_measure,
         hidden_sizes=[M, M],
-    )
-
-    # State Estimator
-    state_estimator = ConcatEnsembleMlp(
-        hidden_sizes=[M, M],
-        output_size=obs_dim,
-        input_size=obs_dim + action_dim,
-        ensemble_count=1
     )
 
     eval_policy = MakeDeterministic(policy)
@@ -111,7 +110,7 @@ if __name__ == "__main__":
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=1,
+            num_epochs=1500,
             num_eval_steps_per_epoch=2500,
             num_trains_per_train_loop=500,
             num_expl_steps_per_train_loop=500,
@@ -129,6 +128,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('concat 1e-4', variant=variant)
+    setup_logger('concat 3SE', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
