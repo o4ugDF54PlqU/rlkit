@@ -109,7 +109,6 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
         h = obs
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
-        h = torch.nan_to_num(h)
         mean = self.last_fc(h) # mean defined here
         if self.std is None:
             log_std = self.last_fc_log_std(h)
@@ -119,6 +118,8 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
             std = torch.from_numpy(np.array([self.std, ])).float().to(
                 ptu.device)
 
+        mean = torch.nan_to_num(mean) # active nan fix
+        std = torch.nan_to_num(std) # active nan fix
         return TanhNormal(mean, std) # Error (mean)
 
     def logprob(self, action, mean, std):
