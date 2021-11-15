@@ -169,7 +169,8 @@ class ASACTrainer(TorchTrainer, LossFunction):
             next_observations = torch.tensor(next_observations).float().cuda()
             probs = torch.ones(obs_size).cuda()
             for i in range(num_batch):
-                print(f"Beginning training round {i}")
+                if i % 100 == 0:
+                    print(f"Beginning training round {i}")
                 index = probs.multinomial(num_samples=num_sample_steps, replacement=False)
                 obs_sample = observations[index]
                 acts_sample = actions[index]
