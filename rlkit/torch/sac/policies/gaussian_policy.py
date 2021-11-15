@@ -109,6 +109,7 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
         h = obs
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
+        h = torch.nan_to_num(h)
         mean = self.last_fc(h) # mean defined here
         if self.std is None:
             log_std = self.last_fc_log_std(h)
