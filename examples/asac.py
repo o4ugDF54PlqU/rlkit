@@ -34,7 +34,7 @@ def experiment(variant):
         hidden_sizes=[M, M],
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
-        ensemble_count=1
+        ensemble_count=3
     )
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim_with_measure,
@@ -129,6 +129,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('concat hotfix', variant=variant)
+    setup_logger('concat mean 3SE', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)

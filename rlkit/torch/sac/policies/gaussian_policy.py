@@ -118,8 +118,6 @@ class TanhGaussianPolicy(Mlp, TorchStochasticPolicy):
             std = torch.from_numpy(np.array([self.std, ])).float().to(
                 ptu.device)
 
-        mean = torch.nan_to_num(mean) # active nan fix
-        std = torch.nan_to_num(std) # active nan fix
         return TanhNormal(mean, std) # Error (mean)
 
     def logprob(self, action, mean, std):
