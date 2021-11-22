@@ -35,7 +35,7 @@ def experiment(variant):
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
         ensemble_count=3,
-        state_estimator_lr=1e-4
+        state_estimator_lr=1e-3
     )
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim_with_measure,
