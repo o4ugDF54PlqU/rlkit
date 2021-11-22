@@ -11,7 +11,7 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp, ConcatEnsembleMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']=f"{randint(0,7)}"
+os.environ['CUDA_VISIBLE_DEVICES']="3"
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
@@ -34,7 +34,8 @@ def experiment(variant):
         hidden_sizes=[M, M],
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
-        ensemble_count=3
+        ensemble_count=3,
+        state_estimator_lr=1e-4
     )
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim_with_measure,
@@ -129,6 +130,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('concat mean 3SE', variant=variant)
+    setup_logger('concat mean ensemble3 lr1e-4', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
