@@ -24,8 +24,10 @@ class SimpleReplayBuffer(ReplayBuffer):
         # but it makes the code *much* easier since you no longer have to
         # worry about termination conditions.
         self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
-        self._actions = np.zeros((max_replay_buffer_size, action_dim + 1)) # IMPORTANT ACTIVE SAC CHANGE: ADDED +1 to action_dim
-        # self._actions = np.zeros((max_replay_buffer_size, action_dim)) # uncomment me to restore SAC
+        # self._actions = np.zeros((max_replay_buffer_size, action_dim + 1)) # IMPORTANT ACTIVE SAC CHANGE: ADDED +1 to action_dim
+        self._actions = np.zeros((max_replay_buffer_size, action_dim)) # uncomment me to restore SAC
+        self._costs = np.zeros((max_replay_buffer_size, 1))
+        self._se_variance = np.zeros((max_replay_buffer_size, 1))
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data
         self._rewards = np.zeros((max_replay_buffer_size, 1))
@@ -43,10 +45,12 @@ class SimpleReplayBuffer(ReplayBuffer):
         self._top = 0
         self._size = 0
 
-    def add_sample(self, observation, action, reward, next_observation,
+    def add_sample(self, observation, action, cost, se_variance, reward, next_observation,
                    terminal, env_info, **kwargs):
         self._observations[self._top] = observation
         self._actions[self._top] = action
+        self._costs[self._top] = cost
+        self._se_variance[self._top] = se_variance
         self._rewards[self._top] = reward
         self._terminals[self._top] = terminal
         self._next_obs[self._top] = next_observation
@@ -70,6 +74,8 @@ class SimpleReplayBuffer(ReplayBuffer):
         batch = dict(
             observations=self._observations[indices],
             actions=self._actions[indices],
+            costs=self._costs[indices],
+            se_variance=self._se_variance[indices],
             rewards=self._rewards[indices],
             terminals=self._terminals[indices],
             next_observations=self._next_obs[indices],

@@ -15,6 +15,7 @@ class ActiveMdpPathCollector(PathCollector):
             policy,
             state_estimator,
             cost,
+            decider_threshhold,
             max_num_epoch_paths_saved=None,
             render=False,
             render_kwargs=None,
@@ -27,6 +28,7 @@ class ActiveMdpPathCollector(PathCollector):
         self._policy = policy
         self._state_estimator = state_estimator  # Include state_estimator for data collections
         self._cost = cost
+        self._decider_threshhold = decider_threshhold
         self._max_num_epoch_paths_saved = max_num_epoch_paths_saved
         self._epoch_paths = deque(maxlen=self._max_num_epoch_paths_saved)
         self._render = render
@@ -56,6 +58,7 @@ class ActiveMdpPathCollector(PathCollector):
                 self._policy,
                 self._state_estimator,
                 self._cost,
+                self._decider_threshhold,
                 max_path_length=max_path_length_this_loop,
                 render=self._render,
                 render_kwargs=self._render_kwargs,

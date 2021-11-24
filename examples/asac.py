@@ -11,15 +11,17 @@ from rlkit.torch.sac.asac import ASACTrainer
 from rlkit.torch.networks import ConcatMlp, ConcatEnsembleMlp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import os
-os.environ['CUDA_VISIBLE_DEVICES']="3"
+os.environ['CUDA_VISIBLE_DEVICES']="6"
 
 def experiment(variant):
     expl_env = NormalizedBoxEnv(HalfCheetahEnv())
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
-    action_dim_with_measure = action_dim + 1
     cost = 1e-3
+    decider_threshhold = 0.0
+    state_estimator_lr = 1e-4
+    se_round_robin = True
     replay = "concat"
 
     # Environment and Algorithm Specifications:
@@ -34,32 +36,33 @@ def experiment(variant):
         hidden_sizes=[M, M],
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
+        round_robin=se_round_robin,
         ensemble_count=3,
-        state_estimator_lr=1e-3
+        state_estimator_lr=state_estimator_lr
     )
     qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim,
-        action_dim=action_dim_with_measure,
+        action_dim=action_dim,
         hidden_sizes=[M, M],
     )
 
@@ -69,12 +72,14 @@ def experiment(variant):
         eval_policy,
         state_estimator,
         cost,
+        decider_threshhold,
     )
     expl_path_collector = ActiveMdpPathCollector(
         expl_env,
         policy,
         state_estimator,
         cost,
+        decider_threshhold,
     )
     replay_buffer = EnvReplayBuffer(
         variant['replay_buffer_size'],
@@ -130,6 +135,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('concat mean ensemble3 lr1e-4', variant=variant)
+    setup_logger('rr var decider tresh0.0lr1e-4', variant=variant)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
