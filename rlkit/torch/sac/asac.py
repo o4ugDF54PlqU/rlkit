@@ -49,8 +49,10 @@ class ASACTrainer(TorchTrainer, LossFunction):
 
             use_automatic_entropy_tuning=True,
             target_entropy=None,
+            device = 'cpu'
     ):
         super().__init__()
+        self.device = device
         self.env = env
         self.policy = policy
         self.qf1 = qf1
@@ -118,12 +120,12 @@ class ASACTrainer(TorchTrainer, LossFunction):
                 print(i)
                 random_sample_indices = random.sample(all_indices, num_sample_steps)
                 state_estimator_pred = self.state_estimator.get_predictions(
-                    [observations[index] for index in random_sample_indices].cuda(), 
-                    [actions[index] for index in random_sample_indices].cuda()
+                    [observations[index] for index in random_sample_indices].to(self.device), 
+                    [actions[index] for index in random_sample_indices].to(self.device)
                 )
                 state_estimator_losses = self.state_estimator.get_losses(
                     state_estimator_pred, 
-                    [next_observations[index] for index in random_sample_indices].cuda()
+                    [next_observations[index] for index in random_sample_indices].to(self.device)
                 )
                 self.state_estimator.update_networks(state_estimator_losses)
         elif replay == "npy" or replay == "concat":
@@ -164,10 +166,10 @@ class ASACTrainer(TorchTrainer, LossFunction):
 
             print("Finished reading buffer files, beginning state-estimator training")
             obs_size = len(observations)
-            observations = torch.tensor(observations).float().cuda()
-            actions = torch.tensor(actions).float().cuda()
-            next_observations = torch.tensor(next_observations).float().cuda()
-            probs = torch.ones(obs_size).cuda()
+            observations = torch.tensor(observations).float().to(self.device)
+            actions = torch.tensor(actions).float().to(self.device)
+            next_observations = torch.tensor(next_observations).float().to(self.device)
+            probs = torch.ones(obs_size).to(self.device)
             for i in range(num_batch):
                 print(f"Beginning training round {i}")
                 index = probs.multinomial(num_samples=num_sample_steps, replacement=False)
@@ -248,14 +250,14 @@ class ASACTrainer(TorchTrainer, LossFunction):
         actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
 
-        next_obs_only_measure = torch.zeros(next_obs.shape).cuda() # Fill only with measured next_observations
-        obs_only_measure = torch.zeros(obs.shape).cuda() # Observations corresponding to above next_observations
-        actions_without_measure_only_measure = torch.zeros(actions_without_measure.shape).cuda() # Acts corresponding to above
+        next_obs_only_measure = torch.zeros(next_obs.shape).to(self.device) # Fill only with measured next_observations
+        obs_only_measure = torch.zeros(obs.shape).to(self.device) # Observations corresponding to above next_observations
+        actions_without_measure_only_measure = torch.zeros(actions_without_measure.shape).to(self.device) # Acts corresponding to above
         num_times_measured = 0
 
         # Calculate costs based on measure/non-measure
         # Fill _only_measure tensors only with steps that model measured
-        costs = torch.zeros(rewards.size()).cuda()
+        costs = torch.zeros(rewards.size()).to(self.device)
         for i in range(len(rewards)):
             if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
                 costs[i] = self.cost

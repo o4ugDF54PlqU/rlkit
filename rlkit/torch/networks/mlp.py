@@ -401,8 +401,10 @@ class ConcatEnsembleMlp():
             layer_norm_kwargs=None,
             ensemble_count=1,
             optimizer_class=optim.Adam,
-            state_estimator_lr=1e-3
+            state_estimator_lr=1e-3,
+            device='cpu'
     ):
+        self.device = device
         self.ensemble_count = ensemble_count
         self.loss_criterion = nn.MSELoss()
         self.individual_mlps = [ConcatMlp(
@@ -416,7 +418,7 @@ class ConcatEnsembleMlp():
                 b_init_value,
                 layer_norm,
                 layer_norm_kwargs
-            ).cuda() for i in range(self.ensemble_count)]
+            ).to(device) for i in range(self.ensemble_count)]
         self.state_estimator_optimizers = [optimizer_class(
                 mlp.parameters(),
                 lr=state_estimator_lr,

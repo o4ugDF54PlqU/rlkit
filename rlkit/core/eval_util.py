@@ -64,7 +64,11 @@ def get_generic_path_information(paths, stat_prefix=''):
 
 
 def get_total_costs(paths):
-    return np.sum([path["costs"] for path in paths])
+    try:
+        temp = np.sum([path["costs"] for path in paths])
+    except KeyError:
+        temp = 0
+    return temp
 
 
 def get_average_returns(paths):

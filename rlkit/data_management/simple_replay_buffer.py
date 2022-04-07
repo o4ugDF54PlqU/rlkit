@@ -25,7 +25,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         # worry about termination conditions.
         self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
         self._actions = np.zeros((max_replay_buffer_size, action_dim + 1)) # IMPORTANT ACTIVE SAC CHANGE: ADDED +1 to action_dim
-        # self._actions = np.zeros((max_replay_buffer_size, action_dim)) # uncomment me to restore SAC
+        self._backup_actions = np.zeros((max_replay_buffer_size, action_dim)) # restore SAC
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data
         self._rewards = np.zeros((max_replay_buffer_size, 1))
@@ -46,7 +46,12 @@ class SimpleReplayBuffer(ReplayBuffer):
     def add_sample(self, observation, action, reward, next_observation,
                    terminal, env_info, **kwargs):
         self._observations[self._top] = observation
-        self._actions[self._top] = action
+        try:
+            self._actions[self._top] = action
+        except ValueError:
+            self._actions = self._backup_actions
+            self._actions[self._top] = action
+        
         self._rewards[self._top] = reward
         self._terminals[self._top] = terminal
         self._next_obs[self._top] = next_observation
