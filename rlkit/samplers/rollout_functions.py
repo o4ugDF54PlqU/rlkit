@@ -127,15 +127,18 @@ def active_rollout(
         # next_o: <class 'numpy.ndarray'> with shape (17,)
 
         # if (not measure) then use state-estimator, else use default next_o
-        if measure < 0.0:
-            costs.append(0.)
+        if measure < 0.0:  # Range is (-1, 1); [0, 1) is measure
             a_tensor = torch.unsqueeze(torch.Tensor(a), 0).to(state_estimator.device) # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
             o_tensor = torch.unsqueeze(torch.Tensor(o), 0).to(state_estimator.device)
-            state_est_next_o = state_estimator.get_predictions(o_tensor, a_tensor)[
-                np.random.randint(0, state_estimator.get_ensemble_count())] # Tensor: torch.Size([1, 17])
-            if torch.any(torch.isinf(state_est_next_o)) or torch.any(torch.isnan(state_est_next_o)):
-                state_est_next_o = torch.nan_to_num(state_est_next_o)
-            next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
+            state_est_next_o = torch.stack(state_estimator.get_predictions(o_tensor, a_tensor))
+            if torch.any(torch.isnan(state_est_next_o)) or torch.any(torch.isinf(state_est_next_o)):
+                costs.append(cost)
+                measure = 1
+            else:
+                costs.append(0.)
+                state_est_next_o = torch.mean(state_est_next_o, dim=0) # Tensor: torch.Size([1, 17])
+                # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
+                next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() 
         else:
             costs.append(cost)
 

@@ -34,7 +34,8 @@ def experiment(variant):
         hidden_sizes=[M, M],
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
-        ensemble_count=1,
+        ensemble_count=3,
+        state_estimator_lr=1e-4,
         device=ptu.device
     )
     qf1 = ConcatMlp(

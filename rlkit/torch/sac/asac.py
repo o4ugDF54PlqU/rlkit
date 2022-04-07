@@ -36,7 +36,6 @@ class ASACTrainer(TorchTrainer, LossFunction):
             reward_scale=1.0,
 
             cost=1e-4,  # Measurement Cost
-            state_estimator_lr=1e-3,
             policy_lr=1e-3,
             qf_lr=1e-3,
             optimizer_class=optim.Adam,
@@ -171,7 +170,8 @@ class ASACTrainer(TorchTrainer, LossFunction):
             next_observations = torch.tensor(next_observations).float().to(self.device)
             probs = torch.ones(obs_size).to(self.device)
             for i in range(num_batch):
-                print(f"Beginning training round {i}")
+                if i % 100 == 0:
+                    print(f"Beginning training round {i}")
                 index = probs.multinomial(num_samples=num_sample_steps, replacement=False)
                 obs_sample = observations[index]
                 acts_sample = actions[index]
@@ -204,6 +204,8 @@ class ASACTrainer(TorchTrainer, LossFunction):
 
         self.policy_optimizer.zero_grad()
         losses.policy_loss.backward()
+        clipping_value = 1
+        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), clipping_value)
         self.policy_optimizer.step()
 
         self.qf1_optimizer.zero_grad()
@@ -259,14 +261,14 @@ class ASACTrainer(TorchTrainer, LossFunction):
         # Fill _only_measure tensors only with steps that model measured
         costs = torch.zeros(rewards.size()).to(self.device)
         for i in range(len(rewards)):
-            if actions[i][-1] > 0.0: # Range is (-1, 1); (0, 1) is measure
+            if actions[i][-1] >= 0.0: # Range is (-1, 1); [0, 1) is measure
                 costs[i] = self.cost
                 next_obs_only_measure[num_times_measured] = next_obs[i]
                 obs_only_measure[num_times_measured] = obs[i]
                 actions_without_measure_only_measure[num_times_measured] = actions_without_measure[i]
 
                 num_times_measured += 1
-                
+
         # slice off empty space
         next_obs_only_measure = next_obs_only_measure[:num_times_measured]
         obs_only_measure = obs_only_measure[:num_times_measured]
