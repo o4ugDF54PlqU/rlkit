@@ -1,5 +1,7 @@
-# RLkit
+# RLkit-ASAC
 Reinforcement learning framework and algorithms implemented in PyTorch.
+
+Active SAC added as part of [research](https://docs.google.com/document/d/1-on4QG8YTdYSQJNXX3nlOhjtFX4hheSuA8TMkJKdIzg/edit?usp=sharing) at University of Michigan.
 
 Implemented algorithms:
  - Semi-supervised Meta Actor Critic
