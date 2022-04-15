@@ -17,6 +17,7 @@ def experiment(variant):
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
+    save_replay = True # save experience for ASAC experience replay
 
     M = variant['layer_size']
     qf1 = ConcatMlp(
@@ -48,10 +49,12 @@ def experiment(variant):
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
+        save_replay=save_replay
     )
     expl_path_collector = MdpPathCollector(
         expl_env,
         policy,
+        save_replay=save_replay
     )
     replay_buffer = EnvReplayBuffer(
         variant['replay_buffer_size'],

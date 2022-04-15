@@ -195,6 +195,7 @@ def rollout(
         return_dict_obs=False,
         full_o_postprocess_func=None,
         reset_callback=None,
+        save_replay=False
 ):
     if render_kwargs is None:
         render_kwargs = {}
@@ -258,12 +259,13 @@ def rollout(
         rewards = rewards.reshape(-1, 1)
 
     # Save buffer to files for ASAC state estimator training
-    with open('observations.npy', 'ab') as obs_file:
-        np.save(obs_file, observations)
-    with open("actions.npy", "ab") as actions_file:
-        np.save(actions_file, actions)
-    with open("next_observations.npy", "ab") as next_obs_file:
-        np.save(next_obs_file, next_observations)
+    if save_replay:
+        with open('observations.npy', 'ab') as obs_file:
+            np.save(obs_file, observations)
+        with open("actions.npy", "ab") as actions_file:
+            np.save(actions_file, actions)
+        with open("next_observations.npy", "ab") as next_obs_file:
+            np.save(next_obs_file, next_observations)
 
     return dict(
         observations=observations,

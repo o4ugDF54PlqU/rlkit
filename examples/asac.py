@@ -20,7 +20,9 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
     action_dim_with_measure = action_dim + 1
     cost = 1e-3
-    replay = "none"
+    # possible values - none, concat (fast), npy (slow)
+    # generate npy by running SAC example then convert to concat with concat_npy.py
+    replay = "none" 
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -112,7 +114,7 @@ if __name__ == "__main__":
         algorithm="ASAC",
         version="normal",
         layer_size=256,
-        replay_buffer_size=int(1E6),
+        replay_buffer_size=int(1E6), # SAC replay buffer, different from experience replay buffer above
         algorithm_kwargs=dict(
             num_epochs=1500,
             num_eval_steps_per_epoch=2500,
@@ -132,6 +134,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('Imback', variant=variant)
+    setup_logger('experiment1', variant=variant)
     ptu.set_gpu_mode(False)  # optionally set the GPU (default=False)
     experiment(variant)

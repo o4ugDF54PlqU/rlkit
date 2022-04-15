@@ -112,6 +112,7 @@ class MdpPathCollector(PathCollector):
             render_kwargs=None,
             rollout_fn=rollout,
             save_env_in_snapshot=True,
+            save_replay=False
     ):
         if render_kwargs is None:
             render_kwargs = {}
@@ -122,6 +123,7 @@ class MdpPathCollector(PathCollector):
         self._render = render
         self._render_kwargs = render_kwargs
         self._rollout_fn = rollout_fn
+        self._save_replay = save_replay
 
         self._num_steps_total = 0
         self._num_paths_total = 0
@@ -147,6 +149,7 @@ class MdpPathCollector(PathCollector):
                 max_path_length=max_path_length_this_loop,
                 render=self._render,
                 render_kwargs=self._render_kwargs,
+                save_replay=self._save_replay
             )
             path_len = len(path['actions'])
             if (
