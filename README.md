@@ -1,7 +1,7 @@
 # RLkit-ASAC
 Reinforcement learning framework and algorithms implemented in PyTorch.
 
-Active SAC added as part of [research](https://docs.google.com/document/d/1-on4QG8YTdYSQJNXX3nlOhjtFX4hheSuA8TMkJKdIzg/edit?usp=sharing) at University of Michigan.
+Active SAC added as part of [research](https://docs.google.com/document/d/1-on4QG8YTdYSQJNXX3nlOhjtFX4hheSuA8TMkJKdIzg/edit?usp=sharing) at University of Michigan. Run with examples/asac.py (better on CPU in my experience for both SAC and ASAC). Experience replay is implemented and optional, saving observations from SAC to pretrain ASAC on.
 
 Implemented algorithms:
  - Semi-supervised Meta Actor Critic
