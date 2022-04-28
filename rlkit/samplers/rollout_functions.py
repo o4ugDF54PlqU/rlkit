@@ -79,6 +79,7 @@ def active_rollout(
         agent,
         state_estimator,
         cost,
+        decider_threshhold,
         max_path_length=np.inf,
         render=False,
         render_kwargs=None,
@@ -100,6 +101,7 @@ def active_rollout(
     actions = []
     rewards = []
     costs = []
+    se_variance = []
     terminals = []
     agent_infos = []
     env_infos = []
@@ -116,30 +118,26 @@ def active_rollout(
         o_for_agent = preprocess_obs_for_policy_fn(o)
         a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs) # Error
 
-        measure = a[-1] # Measure value
-        # measure = 1
-        a = a[:-1] # Gets rid of measure element
-
         if full_o_postprocess_func:
             full_o_postprocess_func(env, agent, o)
 
         next_o, r, d, env_info = env.step(copy.deepcopy(a)) # Next observation defined here
         # next_o: <class 'numpy.ndarray'> with shape (17,)
 
-        # if (not measure) then use state-estimator, else use default next_o
-        if measure < 0.0:  # Range is (-1, 1); [0, 1) is measure
-            a_tensor = torch.unsqueeze(torch.Tensor(a), 0).to(state_estimator.device) # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
-            o_tensor = torch.unsqueeze(torch.Tensor(o), 0).to(state_estimator.device)
-            state_est_next_o = torch.stack(state_estimator.get_predictions(o_tensor, a_tensor))
-            if torch.any(torch.isnan(state_est_next_o)) or torch.any(torch.isinf(state_est_next_o)):
-                costs.append(cost)
-                measure = 1
-            else:
-                costs.append(0.)
-                state_est_next_o = torch.mean(state_est_next_o, dim=0) # Tensor: torch.Size([1, 17])
-                # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
-                next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() 
+        a_tensor = torch.unsqueeze(torch.Tensor(a), 0).to(state_estimator.device) # Unsqueeze changes torch.Size([17]) -> torch.Size([1, 17])
+        o_tensor = torch.unsqueeze(torch.Tensor(o), 0).to(state_estimator.device)
+        state_est_next_o = torch.stack(state_estimator.get_predictions(o_tensor, a_tensor))
+        # SE Decider
+        variance = torch.var(state_est_next_o, dim=0, unbiased=False).sum().detach().cpu().numpy()
+        se_variance.append(variance)
+        if variance < decider_threshhold:
+            # Don't Measure
+            costs.append(0.)
+            state_est_next_o = torch.mean(state_est_next_o, dim=0) # Tensor: torch.Size([1, 17])
+            # Converts torch.Size([1, 17]) -> np.ndarray w/ shape (17,)
+            next_o = torch.squeeze(state_est_next_o.cpu()).detach().numpy() 
         else:
+            # Measure
             costs.append(cost)
 
         if render:
@@ -147,8 +145,6 @@ def active_rollout(
         observations.append(o)
         rewards.append(r)
         terminals.append(d)
-        # Restores measure element
-        a = np.append(a, measure)
         actions.append(a)
         next_observations.append(next_o) # next_o must be np.ndarray w/ shape (17,)
         raw_next_obs.append(next_o)
@@ -173,6 +169,7 @@ def active_rollout(
     return dict(
         observations=observations,
         actions=actions,
+        se_variance = se_variance,
         rewards=rewards,
         costs=costs,
         next_observations=next_observations,
@@ -223,8 +220,6 @@ def rollout(
         raw_obs.append(o)
         o_for_agent = preprocess_obs_for_policy_fn(o)
         a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs)
-
-        a = a[0:6] # Gets rid of measure element
 
         if full_o_postprocess_func:
             full_o_postprocess_func(env, agent, o)

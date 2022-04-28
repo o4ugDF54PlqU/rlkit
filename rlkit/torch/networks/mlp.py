@@ -375,9 +375,9 @@ class ConcatParallelMlp(ParallelMlp):
             input_size,
             output_size_per_mlp,
             hidden_sizes,
-            hidden_activation='relu',
-            output_activation='identity',
-            input_is_already_expanded=False,
+            hidden_activation=hidden_activation,
+            output_activation=output_activation,
+            input_is_already_expanded=input_is_already_expanded,
         )
         self.dim = dim
 
@@ -392,6 +392,7 @@ class ConcatEnsembleMlp():
             hidden_sizes,
             output_size,
             input_size,
+            round_robin=True,
             init_w=3e-3,
             hidden_activation=F.relu,
             output_activation=identity,
@@ -423,6 +424,8 @@ class ConcatEnsembleMlp():
                 mlp.parameters(),
                 lr=state_estimator_lr,
             ) for mlp in self.individual_mlps]
+        self.round_robin = round_robin
+        self.rr_counter = 0
 
 
     def get_predictions(self, *inputs):
@@ -445,9 +448,13 @@ class ConcatEnsembleMlp():
             print("self.ensemble_count: ", self.ensemble_count)
             exit(1)
         for i in range(self.ensemble_count):
+            if self.round_robin and self.rr_counter != i:
+                continue
             self.state_estimator_optimizers[i].zero_grad()
             losses[i].backward()
             self.state_estimator_optimizers[i].step()
+            if self.round_robin:
+                self.rr_counter = (self.rr_counter + 1) % self.ensemble_count
         return
 
 
