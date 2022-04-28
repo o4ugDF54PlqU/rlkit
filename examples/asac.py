@@ -40,7 +40,7 @@ def experiment(variant):
         input_size=obs_dim + action_dim,
         round_robin=se_round_robin,
         ensemble_count=3,
-        device=ptu.device
+        device=ptu.device,
         state_estimator_lr=state_estimator_lr
     )
     qf1 = ConcatMlp(
@@ -139,6 +139,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('experiment1', variant=variant)
+    setup_logger('experiment2', variant=variant)
     ptu.set_gpu_mode(False)  # optionally set the GPU (default=False)
     experiment(variant)
