@@ -45,8 +45,6 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
         for i, (
                 obs,
                 action,
-                cost,
-                se_variance,
                 reward,
                 next_obs,
                 terminal,
@@ -55,8 +53,6 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
         ) in enumerate(zip(
             path["observations"],
             path["actions"],
-            path["costs"],
-            path["se_variance"],
             path["rewards"],
             path["next_observations"],
             path["terminals"],
@@ -66,8 +62,6 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
             self.add_sample(
                 observation=obs,
                 action=action,
-                cost=cost,
-                se_variance=se_variance,
                 reward=reward,
                 next_observation=next_obs,
                 terminal=terminal,

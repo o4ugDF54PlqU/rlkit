@@ -128,7 +128,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
                 )
                 self.state_estimator.update_networks(state_estimator_losses)
         elif replay == "npy" or replay == "concat":
-            prefix = "Code/rlkit/data/replay buffer"
+            prefix = "data/replay buffer"
             if replay == "npy":
                 count = 0
                 buffer_size = int(1e9)
@@ -249,28 +249,30 @@ class ASACTrainer(TorchTrainer, LossFunction):
         terminals = batch['terminals']
         obs = batch['observations']  # torch.Size([256, 17])
         actions = batch['actions'] # torch.Size([256, 7])
+        actions_without_measure = actions[:,:-1] #  [256, 6]
         next_obs = batch['next_observations']
-        costs = batch['costs']
-        se_variance = batch['se_variance']
 
         next_obs_only_measure = torch.zeros(next_obs.shape).to(self.device) # Fill only with measured next_observations
         obs_only_measure = torch.zeros(obs.shape).to(self.device) # Observations corresponding to above next_observations
-        actions_only_measure = torch.zeros(actions.shape).to(self.device)
+        actions_without_measure_only_measure = torch.zeros(actions_without_measure.shape).to(self.device) # Acts corresponding to above
+        num_times_measured = 0
 
         # Calculate costs based on measure/non-measure
         # Fill _only_measure tensors only with steps that model measured
-        num_times_measured = 0
+        costs = torch.zeros(rewards.size()).to(self.device)
         for i in range(len(rewards)):
-            if costs[i] > 0.: # If nonzero cost -> measured
+            if actions[i][-1] >= 0.0: # Range is (-1, 1); [0, 1) is measure
+                costs[i] = self.cost
                 next_obs_only_measure[num_times_measured] = next_obs[i]
                 obs_only_measure[num_times_measured] = obs[i]
-                actions_only_measure[num_times_measured] = actions[i]
+                actions_without_measure_only_measure[num_times_measured] = actions_without_measure[i]
+
                 num_times_measured += 1
 
         # slice off empty space
         next_obs_only_measure = next_obs_only_measure[:num_times_measured]
         obs_only_measure = obs_only_measure[:num_times_measured]
-        actions_only_measure = actions_only_measure[:num_times_measured]
+        actions_without_measure_only_measure = actions_without_measure_only_measure[:num_times_measured]
 
         """
         Policy and Alpha Loss
@@ -302,7 +304,7 @@ class ASACTrainer(TorchTrainer, LossFunction):
         if num_times_measured > 0:
             state_estimator_pred = self.state_estimator.get_predictions(
                     obs_only_measure, 
-                    actions_only_measure
+                    actions_without_measure_only_measure
             )
             state_estimator_losses = self.state_estimator.get_losses(
                 state_estimator_pred, 
@@ -340,7 +342,6 @@ class ASACTrainer(TorchTrainer, LossFunction):
                     total_loss += individual_loss
                     eval_statistics[f'State Estimator {i} Loss'] = individual_loss
                 eval_statistics['State Estimator Mean Loss'] = total_loss / self.state_estimator.get_ensemble_count()
-            eval_statistics['State Estimator Variance'] = np.mean(ptu.get_numpy(se_variance))
             eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
