@@ -18,11 +18,13 @@ def experiment(variant):
     eval_env = NormalizedBoxEnv(HalfCheetahEnv())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
-    action_dim_with_measure = action_dim + 1
     cost = 1e-3
     # possible values - none, concat (fast), npy (slow)
     # generate npy by running SAC example then convert to concat with concat_npy.py
     replay = "none" 
+    decider_threshhold = 0.0
+    state_estimator_lr = 1e-4
+    se_round_robin = True
 
     # Environment and Algorithm Specifications:
     # obs_dim = 17
@@ -36,33 +38,34 @@ def experiment(variant):
         hidden_sizes=[M, M],
         output_size=obs_dim,
         input_size=obs_dim + action_dim,
+        round_robin=se_round_robin,
         ensemble_count=3,
-        state_estimator_lr=1e-4,
         device=ptu.device
+        state_estimator_lr=state_estimator_lr
     )
     qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     target_qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim_with_measure,
+        input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
     )
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim,
-        action_dim=action_dim_with_measure,
+        action_dim=action_dim,
         hidden_sizes=[M, M],
     )
 
@@ -72,12 +75,14 @@ def experiment(variant):
         eval_policy,
         state_estimator,
         cost,
+        decider_threshhold,
     )
     expl_path_collector = ActiveMdpPathCollector(
         expl_env,
         policy,
         state_estimator,
         cost,
+        decider_threshhold,
     )
     replay_buffer = EnvReplayBuffer(
         variant['replay_buffer_size'],
